@@ -1,0 +1,6 @@
+{
+  "appId": "com.puvakova.idealtwin",
+  "appName": "idealtwin",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
