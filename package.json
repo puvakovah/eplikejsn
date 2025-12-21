@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.0.0",
     "@google/genai": "^1.30.0",
     "@supabase/supabase-js": "2",
     "lucide-react": "^0.554.0",
