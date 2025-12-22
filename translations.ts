@@ -146,12 +146,7 @@ export const translations = {
     'profile.top': 'Vrchný diel',
     'profile.bottom': 'Spodný diel',
     'profile.shoes': 'Obuv',
-    'profile.animate_title': 'Oživiť dvojníka',
-    'profile.beta': 'BETA',
-    'profile.animate_desc': 'Tvoja postavička môže ožiť! Funkcia "Oživiť" prehrá ukážkovú animáciu tvojho avatara v pohybe.',
-    'profile.animate_btn': 'Spustiť Animáciu',
-    'profile.preparing': 'Pripravujem video...',
-    'profile.video_placeholder': 'Video zatiaľ nevygenerované',
+    'profile.lock_at': 'Odomkne sa na',
     'profile.simulation': 'Simulácia (Demo Video)',
     'profile.hint': 'Vytvor si dokonalého dvojníka. Zvoľ si atribúty a klikni na Generovať Náhľad.'
   },
@@ -299,12 +294,7 @@ export const translations = {
     'profile.top': 'Top',
     'profile.bottom': 'Bottom',
     'profile.shoes': 'Shoes',
-    'profile.animate_title': 'Animate Twin',
-    'profile.beta': 'BETA',
-    'profile.animate_btn': 'Start Animation',
-    'profile.preparing': 'Preparing video...',
-    'profile.video_placeholder': 'Video not generated yet',
-    'profile.simulation': 'Simulation (Demo Video)',
+    'profile.lock_at': 'Unlocks at',
     'profile.hint': 'Create your perfect twin. Choose attributes and click Generate Preview.'
   }
 };

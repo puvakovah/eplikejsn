@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { Habit, UserProfile } from './types';
+import { Habit, UserProfile, SearchResult } from './types';
 import { LEVELING_SYSTEM, getLevelInfo } from './gamificationConfig';
-import { Check, Flame, Trash2, Plus, Sparkles, Loader2, Search, X } from 'lucide-react';
+import { getHabitSuggestions } from './geminiService';
+import { Check, Flame, Trash2, Plus, Sparkles, Loader2, Search, X, ExternalLink } from 'lucide-react';
 import { translations } from './translations';
 
 interface HabitsProps {
@@ -18,6 +18,13 @@ interface HabitsProps {
 const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addToast }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  
+  // AI Search state for grounding features
+  const [showAiSearch, setShowAiSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<{ text: string, sources: SearchResult[] } | null>(null);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+
   const today = new Date().toISOString().split('T')[0];
 
   const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
@@ -25,6 +32,19 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
         await Haptics.impact({ style }); 
     } catch { 
         if(navigator.vibrate) navigator.vibrate(style === ImpactStyle.Heavy ? 30 : 10); 
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setLoadingSearch(true);
+    try {
+        const result = await getHabitSuggestions(searchQuery);
+        setSuggestions(result);
+    } catch (e) {
+        addToast("Nepodarilo sa vygenerovať odporúčania.");
+    } finally {
+        setLoadingSearch(false);
     }
   };
 
@@ -101,20 +121,94 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-10">
-      <div className="flex justify-between items-center px-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-2 gap-4">
         <div>
             <h2 className="text-2xl font-bold">Moje Návyky</h2>
             <p className="text-xs text-txt-muted">Buduj konzistentnosť, získavaj XP.</p>
         </div>
-        <motion.button 
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setIsAdding(true)}
-          className="bg-primary text-white p-4 rounded-2xl shadow-lg flex items-center gap-2"
-        >
-          <Plus size={20} /> <span className="hidden sm:inline text-sm font-bold">Nový návyk</span>
-        </motion.button>
+        <div className="flex gap-2 w-full sm:w-auto">
+            <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowAiSearch(!showAiSearch)}
+                className="flex-1 sm:flex-none bg-canvas border border-primary/20 text-primary px-4 py-3 rounded-2xl shadow-sm flex items-center justify-center gap-2 font-bold text-sm dark:bg-dark-canvas"
+            >
+                <Search size={18} /> <span className="hidden sm:inline">AI Nápady</span>
+            </motion.button>
+            <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsAdding(true)}
+                className="flex-1 sm:flex-none bg-primary text-white p-4 rounded-2xl shadow-lg flex items-center justify-center gap-2"
+            >
+                <Plus size={20} /> <span className="hidden sm:inline text-sm font-bold">Nový návyk</span>
+            </motion.button>
+        </div>
       </div>
+
+      {/* AI Search Panel with Google Search Grounding */}
+      <AnimatePresence>
+          {showAiSearch && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-surface p-6 rounded-[2.5rem] shadow-md border border-txt-light/10 dark:bg-dark-surface mx-2"
+              >
+                  <div className="flex items-center gap-2 mb-2 text-primary">
+                    <Sparkles size={20} />
+                    <h3 className="font-bold">Gemini AI Vyhľadávanie</h3>
+                  </div>
+                  <p className="text-sm text-txt-muted mb-4">
+                    Nájdi overené návyky podložené dátami z Google Search. Napr. "ako zlepšiť hlboký spánok".
+                  </p>
+                  
+                  <div className="flex gap-2 mb-6">
+                    <input 
+                      type="text" 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      className="flex-1 bg-canvas border border-txt-light/20 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition-all text-sm dark:bg-dark-canvas dark:border-white/10"
+                      placeholder="Čo chceš zlepšiť?"
+                    />
+                    <button 
+                      onClick={handleSearch}
+                      disabled={loadingSearch}
+                      className="bg-primary hover:bg-primary-hover text-white px-6 rounded-xl font-bold disabled:opacity-50 transition-colors"
+                    >
+                      {loadingSearch ? <Loader2 className="animate-spin" size={20} /> : 'Analyzovať'}
+                    </button>
+                  </div>
+
+                  {suggestions && (
+                    <div className="bg-canvas p-5 rounded-2xl border border-txt-light/10 dark:bg-dark-canvas dark:border-white/5">
+                      <p className="text-txt dark:text-txt-dark text-sm leading-relaxed whitespace-pre-wrap">{suggestions.text}</p>
+                      
+                      {suggestions.sources.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-txt-light/10 dark:border-white/10">
+                          <p className="text-[10px] font-black text-txt-muted uppercase tracking-widest mb-3">Zdroje:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {suggestions.sources.map((source, idx) => (
+                              <a 
+                                key={idx} 
+                                href={source.uri} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-txt-light/10 rounded-full text-xs text-primary hover:bg-primary/5 transition-colors dark:bg-dark-surface"
+                              >
+                                <ExternalLink size={12} />
+                                {source.title}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+              </motion.div>
+          )}
+      </AnimatePresence>
 
       <LayoutGroup>
         <motion.div 

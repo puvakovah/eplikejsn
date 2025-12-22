@@ -1,143 +1,167 @@
-
-// DO NOT use or import GoogleGenerativeAI from @google/genai
-
 import { AvatarExpression, AggregatedHealthData, DailyContext } from "./types";
 
 export interface VisualAsset {
     id: string;
     name: string;
-    category: 'headwear' | 'accessory' | 'effect' | 'outfit';
+    category: 'headwear' | 'accessory' | 'effect' | 'outfit' | 'hair' | 'bottom' | 'shoes';
     requirementLevel: number;
     icon: string;
-    className?: string; // Pre špeciálne CSS efekty
-    // Added promptModifier to support AI image generation in geminiService
     promptModifier: string;
+    className?: string;
 }
 
-// --- AGILE ASSET REGISTRY ---
-// Pridanie novej odmeny je otázkou jedného riadku sem.
+export const CATEGORY_UNLOCKS = {
+    BASIC: 1,      // Pohlavie, pleť
+    CLOTHING: 2,   // Viac druhov oblečenia
+    SHOES: 3,      // Topánky
+    GLASSES: 4,    // Okuliare
+    HEADWEAR: 5,   // Pokrývky hlavy
+    ACCESSORIES: 6  // Doplnky a Bundy
+};
+
 export const ASSET_STORE: VisualAsset[] = [
     { 
-        id: 'hat_level_2', 
+        id: 'outfit_lvl_2', 
+        name: 'Módny Set', 
+        category: 'outfit', 
+        requirementLevel: 2, 
+        icon: '👕',
+        promptModifier: 'wearing modern trendy designer outfit'
+    },
+    { 
+        id: 'shoes_lvl_3', 
+        name: 'Bežecké Tenisky', 
+        category: 'shoes', 
+        requirementLevel: 3, 
+        icon: '👟',
+        promptModifier: 'wearing high-end athletic sneakers'
+    },
+    { 
+        id: 'glasses_lvl_4', 
+        name: 'Focus Okuliare', 
+        category: 'accessory', 
+        requirementLevel: 4, 
+        icon: '👓',
+        promptModifier: 'wearing smart tech glasses'
+    },
+    { 
+        id: 'hat_level_5', 
         name: 'Šiltovka Ambície', 
         category: 'headwear', 
-        requirementLevel: 2, 
+        requirementLevel: 5, 
         icon: '🧢',
         promptModifier: 'wearing a cool blue baseball cap'
     },
     { 
-        id: 'glasses_level_3', 
-        name: 'Focus Okuliare', 
-        category: 'accessory', 
-        requirementLevel: 3, 
-        icon: '👓',
-        promptModifier: 'wearing smart reading glasses'
-    },
-    { 
-        id: 'headphones_level_4', 
-        name: 'Deep Work Headset', 
-        category: 'accessory', 
-        requirementLevel: 4, 
-        icon: '🎧',
-        promptModifier: 'wearing high-tech noise-canceling headphones'
-    },
-    { 
-        id: 'aura_level_5', 
-        name: 'Zlatá Aura', 
-        category: 'effect', 
-        requirementLevel: 5, 
-        icon: '✨',
-        className: 'animate-pulse bg-yellow-400/20 blur-xl',
-        promptModifier: 'surrounded by a glowing mystical golden aura'
+        id: 'jacket_level_6', 
+        name: 'Štýlová Bunda', 
+        category: 'outfit', 
+        requirementLevel: 6, 
+        icon: '🧥',
+        promptModifier: 'wearing a stylish warm winter jacket'
     }
 ];
 
 export const LEVELING_SYSTEM = {
-    config: {
-      maxHabitsPerDay: 10,
-      maxBlocksPerDay: 12,
-    },
     xpValues: {
       PLAN_DAY: 50,
-      CREATE_HABIT: 10,
       COMPLETE_WORK_BLOCK: 20,
-      COMPLETE_REST_BLOCK: 10,
       COMPLETE_HABIT: 15,
-      TRACK_REALITY: 5,
       PERFECT_DAY_BONUS: 100,
+      CREATE_HABIT: 10,
+      COMPLETE_REST_BLOCK: 10,
+      TRACK_REALITY: 5,
+      STREAK_3_DAYS: 30,
+      STREAK_7_DAYS: 70
     },
-    titles: [
-      { upTo: 3, title: "Novice Twin" },
-      { upTo: 6, title: "Beginner Twin" },
-      { upTo: 10, title: "Planner Twin" },
-      { upTo: 15, title: "Consistent Twin" },
-      { upTo: 20, title: "Master of Time" },
-      { upTo: 999, title: "The Ideal Twin" }
-    ]
+    config: {
+        maxBlocksPerDay: 10,
+        maxHabitsPerDay: 5
+    }
 };
 
 export const calculateLevelData = (totalXp: number) => {
     let level = 1;
     let accumulatedXp = 0;
-    
     while (true) {
         const xpForNext = 500 + (level - 1) * 250;
         if (totalXp < accumulatedXp + xpForNext) break;
         accumulatedXp += xpForNext;
         level++;
     }
-
     const xpForThisLevel = 500 + (level - 1) * 250;
     const currentLevelXp = totalXp - accumulatedXp;
     
     return {
         level,
-        title: LEVELING_SYSTEM.titles.find(t => level <= t.upTo)?.title || "Legendary Twin",
         currentLevelXp,
-        nextLevelXpThreshold: xpForThisLevel,
         progressPercent: (currentLevelXp / xpForThisLevel) * 100,
-        unlockedAssets: ASSET_STORE.filter(a => level >= a.requirementLevel)
+        unlockedAssets: ASSET_STORE.filter(a => level >= a.requirementLevel),
+        title: level >= 10 ? "Ascended Twin" : level >= 5 ? "Master Twin" : "Novice Twin"
     };
 };
 
 export const getLevelInfo = (totalXp: number) => {
     const data = calculateLevelData(totalXp);
-    // Find what was newly unlocked at this level to provide as feedback in the planner
-    const newUnlocks = ASSET_STORE.filter(a => a.requirementLevel === data.level);
     return {
         level: data.level,
+        nextLevelXp: 500 + (data.level - 1) * 250,
         title: data.title,
-        nextLevelXp: data.nextLevelXpThreshold,
-        // Added unlock property to fix TypeScript error in Planner.tsx
-        unlock: newUnlocks.length > 0 ? newUnlocks.map(a => a.name).join(", ") : undefined
+        unlock: data.level > 1 ? `Nové možnosti v Profile!` : null
     };
 };
 
-export const getAvatarState = (level: number, taskProgress: number, readiness: number = 70, isSick: boolean = false) => {
+export const calculateEnergy = (health?: AggregatedHealthData, context?: DailyContext): number => {
     const now = new Date();
-    const currentHour = now.getHours();
+    const hour = now.getHours();
+    const mins = now.getMinutes();
+    const timeInHours = hour + mins / 60;
+
+    // Ranný štart o 07:00 na 100%
+    let startEnergy = 100;
+    if (health && health.sleepMinutes < 360) {
+        startEnergy = 75; // Slabší štart pri zlom spánku
+    }
+
+    const hoursActive = Math.max(0, timeInHours - 7);
+    let drainRate = 4.8; // ~4.8% za hodinu
+
+    if (context) {
+        if (context.isIll || context.stressLevel > 0.6) {
+            drainRate *= 2; 
+        }
+    }
+
+    let energy = startEnergy - (hoursActive * drainRate);
+
+    if (hour >= 23 || hour < 7) {
+        energy = Math.min(energy, 10);
+    }
+
+    return Math.min(100, Math.max(0, Math.round(energy)));
+};
+
+export const getAvatarState = (energy: number): { expression: AvatarExpression; glow: boolean; opacity: number; animationSpeed: number } => {
+    const hour = new Date().getHours();
     
     let expression: AvatarExpression = 'happy';
-    if (currentHour >= 23 || currentHour < 6) expression = 'sleeping';
-    else if (isSick) expression = 'sad';
-    else if (taskProgress < 20 && currentHour > 14) expression = 'sad';
-    else if (readiness < 40) expression = 'sleepy';
+    let glow = false;
+    let opacity = 1.0;
+    let animationSpeed = 1.0;
 
-    return { 
-        expression, 
-        isNight: currentHour >= 20 || currentHour < 6,
-        scale: 1 + (level - 1) * 0.05 // Twin rastie s levelom
-    };
-};
+    if (energy < 10 || hour >= 23 || hour < 6) {
+        expression = 'sleeping';
+        animationSpeed = 0.5;
+        opacity = 0.8;
+    } else if (energy < 35) {
+        expression = 'sleepy';
+        animationSpeed = 0.7;
+        opacity = 0.95;
+    } else if (energy >= 75) {
+        expression = 'happy';
+        glow = true;
+        animationSpeed = 1.2;
+    }
 
-export const calculateReadiness = (health?: AggregatedHealthData, context?: DailyContext): number => {
-    let score = 70;
-    if (health) {
-        score += ((health.sleepMinutes / 480) * 15) - 15;
-    }
-    if (context) {
-        score -= (context.stressLevel * 25);
-        if (context.isIll) score -= 45;
-    }
-    return Math.min(100, Math.max(0, score));
+    return { expression, glow, opacity, animationSpeed };
 };

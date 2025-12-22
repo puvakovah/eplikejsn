@@ -1,10 +1,8 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { UserProfile, DayPlan } from './types';
-import { ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Moon, Sun, CloudOff, CheckCircle2, Activity, Gift } from 'lucide-react';
-import { calculateLevelData, getAvatarState, calculateReadiness, ASSET_STORE } from './gamificationConfig';
+import { CheckCircle2, Activity, Gift, Zap, CloudOff } from 'lucide-react';
+import { calculateLevelData, calculateEnergy, ASSET_STORE } from './gamificationConfig';
 import Avatar from './Avatar';
 import { translations, Language } from './translations';
 
@@ -17,7 +15,7 @@ interface DashboardProps {
   isOnline?: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, setUser, plan, onNavigate, lang = 'sk', isOnline = true }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 'sk', isOnline = true }) => {
   const t = (key: string) => translations[lang][key] || key;
   const today = new Date().toISOString().split('T')[0];
   
@@ -28,94 +26,110 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setUser, plan, onNavigate, 
   const levelData = calculateLevelData(user.xp);
   const healthToday = user.healthData?.[today];
   const contextToday = user.dailyContext?.[today] || { stressLevel: 0.2, isIll: user.isSick };
-  const readiness = calculateReadiness(healthToday, contextToday);
+  const energy = calculateEnergy(healthToday, contextToday);
 
-  const avatarState = getAvatarState(levelData.level, progress, readiness, user.isSick);
+  // Dynamic next reward logic
+  const nextReward = ASSET_STORE
+    .filter(a => a.requirementLevel > levelData.level)
+    .sort((a, b) => a.requirementLevel - b.requirementLevel)[0];
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center px-2">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-2 gap-4">
           <div>
-            <h1 className="text-3xl font-black text-txt dark:text-white uppercase tracking-tighter">{t('dash.welcome')}, {user.firstName || user.name}!</h1>
-            <p className="text-txt-muted text-sm flex items-center gap-2">
-                {isOnline ? <CheckCircle2 size={12} className="text-secondary" /> : <CloudOff size={12} className="text-red-400" />}
-                <span className="font-bold text-primary">Lvl {levelData.level}</span> — {levelData.title}
+            <h1 className="text-4xl font-black text-txt dark:text-white uppercase tracking-tighter">
+                {t('dash.welcome')}, {user.firstName || user.name}!
+            </h1>
+            <p className="text-txt-muted text-sm flex items-center gap-2 mt-1">
+                {isOnline ? <CheckCircle2 size={14} className="text-secondary" /> : <CloudOff size={14} className="text-red-400" />}
+                <span className="font-bold text-primary">{levelData.title}</span> — Level {levelData.level}
             </p>
           </div>
-          <motion.button whileTap={{ scale: 0.95 }} onClick={() => onNavigate('planner')} className="bg-primary text-white px-8 py-3 rounded-2xl font-bold shadow-xl shadow-primary/20">
-            {t('dash.open_planner')}
-          </motion.button>
+          <div className="flex gap-3 w-full md:w-auto">
+            <motion.button 
+                whileTap={{ scale: 0.95 }} 
+                onClick={() => onNavigate('planner')} 
+                className="flex-1 md:flex-none bg-primary text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
+            >
+                <Zap size={18} /> {t('dash.open_planner')}
+            </motion.button>
+          </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Progress Card */}
-        <div className="lg:col-span-1 bg-surface p-8 rounded-[2.5rem] border border-txt-light/10 shadow-sm flex flex-col items-center justify-center dark:bg-dark-surface">
-          <h3 className="text-xs font-black text-txt-muted uppercase tracking-widest mb-4">Dnešný Progres</h3>
-          <div className="h-48 w-full relative">
-             <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={[{value: completedTasks}, {value: totalTasks - completedTasks}]} cx="50%" cy="50%" innerRadius={55} outerRadius={75} startAngle={90} endAngle={-270} paddingAngle={8} dataKey="value" stroke="none" cornerRadius={10}>
-                    <Cell fill="#4A6D88" /><Cell fill="#e2e8f0" />
-                  </Pie>
-                </PieChart>
-             </ResponsiveContainer>
-             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                 <span className="text-4xl font-black">{progress}%</span>
-                 <span className="text-[10px] font-bold text-txt-muted uppercase tracking-tighter">Úloh hotovo</span>
+        <div className="lg:col-span-4 bg-surface p-8 rounded-[2.5rem] border border-txt-light/10 shadow-sm dark:bg-dark-surface flex flex-col justify-between">
+          <div>
+            <h3 className="text-xs font-black text-txt-muted uppercase tracking-widest mb-6">Úroveň & Skúsenosti</h3>
+            <div className="flex items-end justify-between mb-2">
+                <span className="text-5xl font-black text-txt dark:text-white">{levelData.level}</span>
+                <span className="text-sm font-bold text-txt-muted">{Math.floor(levelData.currentLevelXp)} / {500 + (levelData.level - 1) * 250} XP</span>
+            </div>
+            <div className="w-full h-4 bg-canvas dark:bg-dark-canvas rounded-full overflow-hidden mb-4">
+                <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${levelData.progressPercent}%` }}
+                    className="h-full bg-primary"
+                />
+            </div>
+          </div>
+          
+          <div className="pt-6 border-t border-txt-light/10 dark:border-white/10">
+             <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-black uppercase tracking-widest text-txt-muted">Dnešný progres</h4>
+                <span className="text-lg font-bold">{progress}%</span>
+             </div>
+             <div className="w-full h-2 bg-canvas dark:bg-dark-canvas rounded-full overflow-hidden">
+                <motion.div 
+                    animate={{ width: `${progress}%` }}
+                    className="h-full bg-secondary"
+                />
              </div>
           </div>
         </div>
 
-        {/* ÚSTREDNÝ TWIN AVATAR */}
-        <div className="lg:col-span-1 bg-surface p-8 rounded-[2.5rem] border border-txt-light/10 shadow-sm flex flex-col items-center relative overflow-hidden dark:bg-dark-surface min-h-[350px]">
-           <Avatar 
-             user={user} 
-             expression={avatarState.expression} 
-             size="xl" 
-           />
-           <div className="mt-6 text-center">
-                <div className="text-xs font-bold text-txt-muted uppercase tracking-widest">{levelData.title}</div>
-                <div className="w-32 h-1.5 bg-canvas rounded-full mt-2 overflow-hidden dark:bg-dark-canvas">
-                    <div className="h-full bg-primary" style={{ width: `${levelData.progressPercent}%` }}></div>
+        {/* Central Display */}
+        <div className="lg:col-span-4 bg-surface p-10 rounded-[3rem] border border-txt-light/10 shadow-lg flex flex-col items-center justify-center relative dark:bg-dark-surface">
+           <Avatar user={user} size="xl" />
+           <div className="mt-8 text-center">
+                <div className="text-xl font-black text-txt dark:text-white uppercase tracking-tighter">
+                  {energy > 75 ? 'Dvojník je Nabitý' : energy > 35 ? 'Dvojník je Aktívny' : 'Dvojník je Unavený'}
                 </div>
-           </div>
-           <div className="absolute top-6 right-6 p-2 bg-primary/10 rounded-xl text-primary">
-                {avatarState.isNight ? <Moon size={20} /> : <Sun size={20} />}
+                <div className="text-sm text-txt-muted mt-1 font-bold">Aktuálna energia: {energy}%</div>
            </div>
         </div>
 
-        {/* Readiness & Goal Card */}
-        <div className="lg:col-span-1 flex flex-col gap-4">
-            <div className="bg-surface p-6 rounded-[2rem] border border-txt-light/10 shadow-sm dark:bg-dark-surface">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-txt-muted">{t('dash.readiness')}</h4>
-                    <Activity size={16} className="text-primary" />
+        {/* Rewards & Stats */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+            <div className="bg-surface p-8 rounded-[2.5rem] border border-txt-light/10 shadow-sm dark:bg-dark-surface">
+                <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-txt-muted">Energia</h4>
+                    <Activity size={20} className="text-primary" />
                 </div>
-                <div className="text-3xl font-black text-primary">{readiness}%</div>
-                <div className="w-full h-2 bg-canvas rounded-full mt-3 overflow-hidden dark:bg-dark-canvas">
-                    <div className="h-full bg-secondary" style={{ width: `${readiness}%` }}></div>
+                <div className="flex items-center gap-6">
+                    <div className="text-5xl font-black text-primary">{energy}%</div>
+                    <div className="text-xs text-txt-muted font-medium italic max-w-[140px]">
+                        {energy > 80 ? "Plná sila na dôležité ciele!" : energy > 40 ? "Udržuj tempo a nezabúdaj piť." : "Už len to najdôležitejšie."}
+                    </div>
                 </div>
-                <p className="text-[10px] text-txt-muted mt-3 font-medium italic">
-                    {readiness > 70 ? "Si v plnej sile!" : "Dnes odporúčame regeneráciu."}
-                </p>
             </div>
             
-            <div className="bg-primary/5 p-6 rounded-[2rem] border border-primary/10 dark:bg-primary/10">
-                <h4 className="font-bold text-sm mb-3 flex items-center gap-2">
-                    <Gift size={16} className="text-primary" /> Ďalšia odmena
+            <div className="bg-habit/5 p-8 rounded-[2.5rem] border border-habit/20 dark:bg-habit/10 flex-1 flex flex-col justify-center">
+                <h4 className="font-black text-xs uppercase tracking-widest text-habit mb-4 flex items-center gap-2">
+                    <Gift size={18} /> Ďalšia vizuálna odmena
                 </h4>
-                {ASSET_STORE.find(a => a.requirementLevel > levelData.level) ? (
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white dark:bg-dark-surface rounded-xl flex items-center justify-center text-xl shadow-sm">
-                            {ASSET_STORE.find(a => a.requirementLevel > levelData.level)?.icon}
+                {nextReward ? (
+                    <div className="flex items-center gap-5">
+                        <div className="w-16 h-16 bg-white dark:bg-dark-surface rounded-2xl flex items-center justify-center text-3xl shadow-md border border-habit/20">
+                            {nextReward.icon}
                         </div>
                         <div>
-                            <p className="text-xs font-bold">{ASSET_STORE.find(a => a.requirementLevel > levelData.level)?.name}</p>
-                            <p className="text-[10px] text-txt-muted">Level {ASSET_STORE.find(a => a.requirementLevel > levelData.level)?.requirementLevel}</p>
+                            <p className="text-sm font-black uppercase tracking-tight text-txt dark:text-white">{nextReward.name}</p>
+                            <p className="text-xs text-txt-muted font-bold mt-1">Level {nextReward.requirementLevel}</p>
                         </div>
                     </div>
                 ) : (
-                    <p className="text-xs text-txt-muted">Všetky vizuálne odmeny získané!</p>
+                    <p className="text-sm font-bold text-habit">Všetky odmeny získané!</p>
                 )}
             </div>
         </div>

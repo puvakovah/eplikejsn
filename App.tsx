@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppView, DayPlan, UserProfile, Habit } from './types';
@@ -7,10 +6,11 @@ import Planner from './Planner';
 import Habits from './Habits';
 import TwinProfile from './TwinProfile';
 import Inbox from './Inbox';
+// Correct PascalCase import for Settings component
 import Settings from './Settings';
 import Auth from './Auth';
 import { db } from './db';
-import { LayoutDashboard, Calendar, ListChecks, UserCircle, LogOut, Loader2, Mail, Settings as SettingsIcon, Zap, Star, CloudOff, RefreshCw, CheckCircle, Cloud } from 'lucide-react';
+import { LayoutDashboard, Calendar, ListChecks, UserCircle, LogOut, Loader2, Mail, Settings as SettingsIcon, CloudOff, Cloud } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -19,7 +19,6 @@ const App: React.FC = () => {
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   
-  // Jazyk na úrovni App pre bleskovú reakciu Sidebar-u aj obsahu
   const [lang, setLang] = useState<'sk' | 'en'>(() => {
     return (localStorage.getItem('ideal_twin_lang') as 'sk' | 'en') || 'sk';
   });
@@ -29,7 +28,6 @@ const App: React.FC = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [toasts, setToasts] = useState<{id: number, msg: string, type: 'xp' | 'lvl'}[]>([]);
 
   useEffect(() => {
@@ -53,13 +51,7 @@ const App: React.FC = () => {
     if (!currentUsername || !user) return;
     setIsSyncing(true);
     try {
-        const result = await db.saveUserData(currentUsername, { user, habits, dayPlan });
-        if (result.success) {
-            setSyncStatus('success');
-            setTimeout(() => setSyncStatus('idle'), 3000);
-        }
-    } catch (err) {
-        setSyncStatus('error');
+        await db.saveUserData(currentUsername, { user, habits, dayPlan });
     } finally {
         setIsSyncing(false);
     }
@@ -116,7 +108,7 @@ const App: React.FC = () => {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-72 bg-surface border-r border-txt-light/20 dark:bg-dark-surface p-6">
           <div className="flex items-center justify-between mb-10">
-            <h1 className="text-2xl font-black text-primary tracking-tighter">IdealTwin</h1>
+            <h1 className="text-2xl font-black text-primary tracking-tighter uppercase italic">IdealTwin</h1>
             {isOnline ? <Cloud className="text-secondary" size={18} /> : <CloudOff className="text-red-400" size={18} />}
           </div>
           
@@ -128,12 +120,6 @@ const App: React.FC = () => {
             <NavItem active={currentView === AppView.PROFILE} icon={<UserCircle size={20}/>} label={navLabels.profile} onClick={() => setCurrentView(AppView.PROFILE)} />
             <NavItem active={currentView === AppView.SETTINGS} icon={<SettingsIcon size={20}/>} label={navLabels.settings} onClick={() => setCurrentView(AppView.SETTINGS)} />
           </nav>
-          
-          <div className="mt-auto space-y-4">
-              <button onClick={() => db.logout().then(() => window.location.reload())} className="w-full flex items-center gap-3 p-4 text-red-500 hover:bg-red-50 rounded-2xl transition-colors font-bold text-sm uppercase tracking-widest">
-                  <LogOut size={20}/> {navLabels.logout}
-              </button>
-          </div>
       </aside>
 
       {/* Main Content */}
