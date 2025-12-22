@@ -1,11 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
-import { UserProfile, AvatarConfig } from './types';
 import { 
-    getPresetAvatarUrl, generateMotivationVideo, 
+    UserProfile, AvatarConfig,
     AvatarGender, AvatarSkin, 
     AvatarHairColor, AvatarHairStyle, AvatarEyeColor, 
     AvatarGlasses, AvatarHeadwear, 
     AvatarTopType, AvatarBottomType, AvatarShoesType, AvatarClothingColor 
+} from './types';
+import { 
+    getPresetAvatarUrl, generateMotivationVideo
 } from './geminiService';
 import { Video, Loader2, Play, CheckCircle2, User, Palette, Sparkles, Eye, Glasses, Shirt, Footprints, Smile, RefreshCw, Save } from 'lucide-react';
 import { translations, Language } from './translations';

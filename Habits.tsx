@@ -1,407 +1,232 @@
-import React, { useState, Dispatch, SetStateAction } from 'react';
-import { Habit, SearchResult, UserProfile, InboxMessage } from './types';
-import { getHabitSuggestions } from './geminiService';
+
+import React, { useState } from 'react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Habit, UserProfile } from './types';
 import { LEVELING_SYSTEM, getLevelInfo } from './gamificationConfig';
-import { Check, Search, Plus, ExternalLink, Loader2, Flame, Mail, X, Save, ArrowUpCircle, Trash2 } from 'lucide-react';
-import { translations, Language } from './translations';
+import { Check, Flame, Trash2, Plus, Sparkles, Loader2, Search, X } from 'lucide-react';
+import { translations } from './translations';
 
 interface HabitsProps {
   habits: Habit[];
-  setHabits: Dispatch<SetStateAction<Habit[]>>;
+  setHabits: React.Dispatch<React.SetStateAction<Habit[]>>;
   user: UserProfile;
-  setUser: Dispatch<SetStateAction<UserProfile>>;
-  lang?: Language;
+  setUser: React.Dispatch<React.SetStateAction<UserProfile>>;
+  addToast: (msg: string, type?: 'xp' | 'lvl') => void;
 }
 
-const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, lang = 'sk' }) => {
-  const [showAiSearch, setShowAiSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<{ text: string, sources: SearchResult[] } | null>(null);
-  const [loading, setLoading] = useState(false);
+const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addToast }) => {
   const [isAdding, setIsAdding] = useState(false);
-  const [newHabitTitle, setNewHabitTitle] = useState('');
-  const [newHabitFreq, setNewHabitFreq] = useState<'daily' | 'weekly'>('daily');
-  const [notification, setNotification] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState('');
+  const today = new Date().toISOString().split('T')[0];
 
-  const t = (key: string) => translations[lang][key] || key;
-
-  // Funkcia na simuláciu odoslania emailu (Toast)
-  const sendEmailNotification = (subject: string) => {
-    setNotification(`📧 ${subject}`);
-    setTimeout(() => {
-        setNotification(null);
-    }, 4000);
+  const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
+    try { 
+        await Haptics.impact({ style }); 
+    } catch { 
+        if(navigator.vibrate) navigator.vibrate(style === ImpactStyle.Heavy ? 30 : 10); 
+    }
   };
 
-  const deleteHabit = (e: React.MouseEvent, id: string) => {
-    e.preventDefault(); 
-    e.stopPropagation();
-    setHabits(prevHabits => prevHabits.filter(h => h.id !== id));
-  };
+  const handleToggle = async (id: string) => {
+    const habit = habits.find(h => h.id === id);
+    if (!habit || habit.completedDates.includes(today)) return;
 
-  const toggleHabit = (id: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    // PHYSICAL FEEDBACK
+    await triggerHaptic(ImpactStyle.Medium);
+
+    // OPTIMISTIC STATE UPDATE
+    const xpGain = LEVELING_SYSTEM.xpValues.COMPLETE_HABIT;
     
-    // Check Daily Limit
-    if (user.dailyHabitCount >= LEVELING_SYSTEM.config.maxHabitsPerDay) {
-        alert("Denný limit XP dosiahnutý.");
-    }
+    // 1. Update Habits instantly
+    setHabits(prev => prev.map(h => h.id === id ? { 
+        ...h, 
+        streak: h.streak + 1, 
+        completedDates: [...h.completedDates, today] 
+    } : h));
+    
+    // 2. Update User Stats instantly
+    const newXp = user.xp + xpGain;
+    const info = getLevelInfo(newXp);
+    const isLevelUp = info.level > user.twinLevel;
 
-    let xpGained = 0;
-    let levelUpOccurred = false;
-    let newInboxMessages: InboxMessage[] = [];
+    setUser(prev => ({
+        ...prev,
+        xp: newXp,
+        twinLevel: info.level,
+        xpToNextLevel: info.nextLevelXp,
+        energy: isLevelUp ? 100 : Math.min(100, prev.energy + 5),
+        dailyHabitCount: prev.dailyHabitCount + 1
+    }));
 
-    setHabits(prevHabits => {
-        const updated = prevHabits.map(h => {
-            if (h.id === id) {
-                const isCompletedToday = h.completedDates.includes(today);
-                
-                // If already completed today, do nothing (or handle uncheck if implemented)
-                if (isCompletedToday) return h; 
-
-                // --- STREAK LOGIC UPDATE ---
-                // Check last completion date
-                // We sort dates to be sure we get the latest one
-                const sortedDates = [...h.completedDates].sort();
-                const lastDate = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null;
-                
-                let newStreak = 1; // Default to 1 (just started today)
-
-                if (lastDate === yesterday) {
-                    // Continued from yesterday
-                    newStreak = h.streak + 1;
-                } else if (lastDate === today) {
-                    // Should be handled by isCompletedToday check, but safety fallback
-                    newStreak = h.streak; 
-                } else {
-                    // Gap detected (missed yesterday or earlier), reset to 1
-                    newStreak = 1;
-                }
-
-                // --- REWARDS ---
-                if (user.dailyHabitCount < LEVELING_SYSTEM.config.maxHabitsPerDay) {
-                    xpGained += LEVELING_SYSTEM.xpValues.COMPLETE_HABIT;
-                }
-
-                // Only award streak bonuses if streak is maintained
-                if (newStreak === 3) {
-                   const bonus = LEVELING_SYSTEM.xpValues.STREAK_3_DAYS;
-                   xpGained += bonus;
-                   sendEmailNotification(`Streak 3! +${bonus} XP`);
-                   
-                   newInboxMessages.push({
-                     id: `streak-3-${Date.now()}`,
-                     sender: 'IdealTwin Assistant',
-                     subject: `Streak 3 Days (+${bonus} XP)`,
-                     body: `Great consistency! 3 days streak bonus awarded.`,
-                     date: new Date().toISOString(),
-                     read: false,
-                     type: 'achievement'
-                   });
-                }
-                // (Other streak logic remains similar)
-
-                return { 
-                  ...h, 
-                  streak: newStreak,
-                  completedDates: [...h.completedDates, today]
-                };
-            }
-            return h;
-        });
-        return updated;
-    });
-
-    if (xpGained > 0) {
-        setUser(prev => {
-          let newXp = prev.xp + xpGained;
-          const levelInfo = getLevelInfo(newXp);
-          let newLevel = levelInfo.level;
-          let newEnergy = prev.energy;
-
-          if (newLevel > prev.twinLevel) {
-            newEnergy = 100; 
-            levelUpOccurred = true;
-            newInboxMessages.push({
-                id: `lvl-${Date.now()}`,
-                sender: 'IdealTwin Assistant',
-                subject: `Level Up! ${newLevel}`,
-                body: `Congrats! You reached Level ${newLevel}. Energy restored.`,
-                date: new Date().toISOString(),
-                read: false,
-                type: 'achievement'
-            });
-          } else {
-            newEnergy = Math.min(100, newEnergy + 2); 
-          }
-
-          if (levelUpOccurred) {
-            sendEmailNotification(`Level Up! ${newLevel}`);
-          }
-
-          return {
-            ...prev,
-            xp: newXp,
-            twinLevel: newLevel,
-            levelTitle: levelInfo.title,
-            xpToNextLevel: levelInfo.nextLevelXp, 
-            energy: newEnergy,
-            dailyHabitCount: prev.dailyHabitCount + 1, 
-            messages: [...prev.messages, ...newInboxMessages]
-          };
-        });
+    addToast(`+${xpGain} XP`, 'xp');
+    if (isLevelUp) {
+        addToast(`LEVEL UP! Úroveň ${info.level}`, 'lvl');
+        triggerHaptic(ImpactStyle.Heavy);
     }
   };
 
-  const handleAddNewHabit = () => {
-    if (!newHabitTitle.trim()) return;
-
-    const newHabit: Habit = {
-      id: Date.now().toString(),
-      title: newHabitTitle,
-      frequency: newHabitFreq,
-      streak: 0,
-      completedDates: [],
-      category: 'productivity'
+  const handleCreate = async () => {
+    if(!newTitle.trim()) return;
+    
+    await triggerHaptic(ImpactStyle.Light);
+    const xpReward = LEVELING_SYSTEM.xpValues.CREATE_HABIT;
+    
+    const newHabit: Habit = { 
+        id: Date.now().toString(), 
+        title: newTitle, 
+        streak: 0, 
+        completedDates: [], 
+        frequency: 'daily', 
+        category: 'productivity' 
     };
 
     setHabits(prev => [...prev, newHabit]);
+    addToast(`Návyk pridaný! +${xpReward} XP`);
     
-    setUser(prev => {
-        const newXp = prev.xp + LEVELING_SYSTEM.xpValues.CREATE_HABIT;
-        const levelInfo = getLevelInfo(newXp);
-        return {
-            ...prev,
-            xp: newXp,
-            twinLevel: levelInfo.level,
-            levelTitle: levelInfo.title,
-            xpToNextLevel: levelInfo.nextLevelXp
-        };
-    });
-
-    setNewBlockNotification(`+${LEVELING_SYSTEM.xpValues.CREATE_HABIT} XP`);
-    setNewHabitTitle('');
+    // Update XP
+    const info = getLevelInfo(user.xp + xpReward);
+    setUser(prev => ({ ...prev, xp: prev.xp + xpReward, twinLevel: info.level, xpToNextLevel: info.nextLevelXp }));
+    
+    setNewTitle('');
     setIsAdding(false);
   };
 
-  const setNewBlockNotification = (msg: string) => {
-      setNotification(msg);
-      setTimeout(() => setNotification(null), 3000);
-  }
-
-  const handleSearch = async () => {
-    if (!searchQuery) return;
-    setLoading(true);
-    const result = await getHabitSuggestions(searchQuery);
-    setSuggestions(result);
-    setLoading(false);
+  const handleDelete = async (id: string) => {
+      if (confirm("Naozaj vymazať tento návyk?")) {
+          await triggerHaptic(ImpactStyle.Light);
+          setHabits(prev => prev.filter(h => h.id !== id));
+      }
   };
-
-  const getLast7Days = () => {
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      days.push({
-        dateString: d.toISOString().split('T')[0],
-        dayName: d.toLocaleDateString(lang === 'sk' ? 'sk-SK' : 'en-US', { weekday: 'narrow' })
-      });
-    }
-    return days;
-  };
-  
-  const weekDays = getLast7Days();
-  const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="space-y-6 relative animate-fade-in pb-20">
-      {notification && (
-        <div className="fixed top-4 right-4 z-50 bg-txt text-white px-6 py-4 rounded-xl shadow-xl border border-txt-light/20 animate-slide-in-down flex items-center gap-3 dark:bg-dark-surface dark:text-white dark:border-txt-light/10">
-            <div className={`p-2 rounded-full text-txt ${notification.includes('Level Up') ? 'bg-habit' : 'bg-primary'}`}>
-                {notification.includes('Level Up') ? <ArrowUpCircle size={20} /> : <Mail size={20} />}
-            </div>
-            <div>
-                <h4 className="font-bold text-sm">IdealTwin</h4>
-                <p className="text-xs text-slate-300">{notification}</p>
-            </div>
+    <div className="space-y-6 max-w-4xl mx-auto pb-10">
+      <div className="flex justify-between items-center px-2">
+        <div>
+            <h2 className="text-2xl font-bold">Moje Návyky</h2>
+            <p className="text-xs text-txt-muted">Buduj konzistentnosť, získavaj XP.</p>
         </div>
-      )}
-
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-txt dark:text-txt-dark">{t('habits.title')}</h2>
-        <button 
-          onClick={() => setShowAiSearch(!showAiSearch)}
-          className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 shadow-sm transition-all"
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsAdding(true)}
+          className="bg-primary text-white p-4 rounded-2xl shadow-lg flex items-center gap-2"
         >
-          <Search size={16} />
-          {t('habits.find_ai')}
-        </button>
+          <Plus size={20} /> <span className="hidden sm:inline text-sm font-bold">Nový návyk</span>
+        </motion.button>
       </div>
 
-      {/* Search UI (unchanged) */}
-      {showAiSearch && (
-        <div className="bg-surface p-6 rounded-xl shadow-md border border-txt-light/10 animate-slide-in-down dark:bg-dark-surface dark:border-txt-light/10">
-          <h3 className="font-semibold text-txt mb-2 dark:text-txt-dark">{t('habits.ai_title')}</h3>
-          <p className="text-sm text-txt-muted mb-4 dark:text-txt-dark-muted">{t('habits.ai_desc')}</p>
-          
-          <div className="flex gap-2 mb-4">
-            <input 
-              type="text" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 border border-txt-light/30 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none transition-all bg-canvas text-txt dark:bg-dark-canvas dark:text-txt-dark dark:border-txt-light/10"
-              placeholder={t('habits.search_placeholder')}
-            />
-            <button 
-              onClick={handleSearch}
-              disabled={loading}
-              className="bg-txt hover:bg-black text-white px-6 rounded-lg disabled:opacity-50 transition-colors dark:bg-primary dark:hover:bg-primary/90"
-            >
-              {loading ? <Loader2 className="animate-spin" /> : t('habits.search_btn')}
-            </button>
-          </div>
+      <LayoutGroup>
+        <motion.div 
+            layout
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
+          <AnimatePresence mode="popLayout">
+            {habits.map(habit => {
+              const done = habit.completedDates.includes(today);
+              return (
+                <motion.div
+                  layout
+                  key={habit.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                  className={`group relative overflow-hidden bg-surface p-5 rounded-3xl border transition-all duration-300 dark:bg-dark-surface
+                    ${done ? 'bg-secondary/5 border-secondary/20 shadow-inner' : 'border-txt-light/10 shadow-sm hover:shadow-md hover:border-primary/30'}
+                  `}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <motion.div layout className="flex items-center gap-2 mb-1">
+                         <span className="text-[10px] uppercase font-bold text-txt-muted bg-canvas dark:bg-dark-canvas px-2 py-0.5 rounded-lg border border-txt-light/5">Denný</span>
+                         <div className="flex items-center gap-1 text-habit font-bold text-xs">
+                           <Flame size={14} fill="currentColor" className={habit.streak > 0 ? "animate-pulse" : ""} /> {habit.streak}
+                         </div>
+                      </motion.div>
+                      <motion.h3 
+                        layout
+                        className={`text-lg font-bold transition-all ${done ? 'opacity-40 line-through text-txt-muted' : 'text-txt dark:text-white'}`}
+                      >
+                        {habit.title}
+                      </motion.h3>
+                    </div>
 
-          {suggestions && (
-            <div className="bg-canvas p-4 rounded-lg border border-txt-light/10 dark:bg-dark-canvas dark:border-txt-light/10">
-              <p className="text-txt whitespace-pre-wrap text-sm leading-relaxed dark:text-txt-dark">{suggestions.text}</p>
-              {/* Sources list */}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {habits.map(habit => {
-          const isDoneToday = habit.completedDates.includes(today);
-          // VISUAL CHECK: Only show streak if it's 3 or more
-          const showStreak = habit.streak >= 3;
-
-          return (
-            <div key={habit.id} className="bg-surface p-5 rounded-xl border border-txt-light/10 shadow-sm hover:shadow-md hover:border-primary/20 transition-all flex flex-col justify-between group dark:bg-dark-surface dark:border-txt-light/10">
-               <div>
-                  <div className="flex justify-between items-start mb-2">
-                     <h4 className="font-bold text-txt text-lg flex-1 pr-2 truncate dark:text-txt-dark">{habit.title}</h4>
-                     <div className="flex items-center gap-2 shrink-0">
-                        {/* Only display streak badge if streak >= 3 */}
-                        {showStreak && (
-                            <div className="flex items-center gap-1 bg-habit/10 text-habit px-2 py-1 rounded-full text-xs font-bold border border-habit/20 animate-fade-in">
-                                <Flame size={12} fill="currentColor" />
-                                {habit.streak}
-                            </div>
-                        )}
-                        <button 
-                            type="button"
-                            onClick={(e) => deleteHabit(e, habit.id)}
-                            className="text-txt-light hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors ml-1 z-10 dark:text-txt-dark-muted dark:hover:bg-red-900/20"
-                            title="Delete"
-                        >
-                            <Trash2 size={18} />
-                        </button>
-                     </div>
-                  </div>
-                  <span className="bg-canvas text-txt-muted text-xs px-2 py-0.5 rounded uppercase tracking-wide dark:bg-dark-canvas dark:text-txt-dark-muted">{habit.frequency === 'daily' ? t('habits.daily') : t('habits.weekly')}</span>
-                  
-                  <div className="mt-4 mb-2">
-                    <p className="text-[10px] text-txt-muted uppercase mb-1 dark:text-txt-dark-muted">{t('habits.last_7_days')}</p>
-                    <div className="flex justify-between">
-                      {weekDays.map((day) => {
-                        const isCompleted = habit.completedDates.includes(day.dateString);
-                        return (
-                          <div key={day.dateString} className="flex flex-col items-center gap-1">
-                            <div 
-                              className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] transition-colors
-                                ${isCompleted ? 'bg-secondary text-white shadow-sm' : 'bg-canvas text-txt-light dark:bg-dark-canvas dark:text-txt-dark-muted'}
-                              `}
+                    <div className="flex items-center gap-2">
+                        {!done && (
+                            <button 
+                                onClick={() => handleDelete(habit.id)}
+                                className="opacity-0 group-hover:opacity-100 p-2 text-txt-light hover:text-red-500 transition-all"
                             >
-                              {isCompleted && <Check size={12} strokeWidth={3} />}
-                            </div>
-                            <span className="text-[10px] text-txt-muted dark:text-txt-dark-muted">{day.dayName}</span>
-                          </div>
-                        );
-                      })}
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                        <motion.button
+                            whileTap={{ scale: 0.8 }}
+                            onClick={() => handleToggle(habit.id)}
+                            disabled={done}
+                            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-sm
+                            ${done ? 'bg-secondary text-white border-none' : 'bg-canvas text-txt-light border border-txt-light/20 dark:bg-dark-canvas dark:border-white/10'}
+                            `}
+                        >
+                            {done ? <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}><Check size={28} strokeWidth={4} /></motion.div> : <Check size={24} />}
+                        </motion.button>
                     </div>
                   </div>
-               </div>
-               
-               <button 
-                 onClick={() => toggleHabit(habit.id)}
-                 disabled={isDoneToday}
-                 className={`w-full mt-3 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all
-                   ${isDoneToday 
-                     ? 'bg-secondary/10 text-secondary border border-secondary/20 cursor-default dark:bg-secondary/20 dark:border-secondary/30' 
-                     : 'bg-primary hover:bg-primary-hover text-white shadow-sm'}
-                 `}
-               >
-                 {isDoneToday ? (
-                   <>
-                    <Check size={18} />
-                    {t('habits.done')}
-                   </>
-                 ) : (
-                   t('habits.done_today')
-                 )}
-               </button>
-            </div>
-          );
-        })}
-        
-        {/* Add New Habit Card (Unchanged logic, keeping existing UI structure) */}
-        {isAdding ? (
-            <div className="bg-surface p-5 rounded-xl border-2 border-primary shadow-md flex flex-col justify-between min-h-[200px] animate-fade-in dark:bg-dark-surface dark:border-primary">
-                <div>
-                    <h4 className="font-bold text-txt mb-3 dark:text-txt-dark">{t('habits.new_habit')}</h4>
-                    <input 
-                        autoFocus
-                        type="text" 
-                        value={newHabitTitle}
-                        onChange={(e) => setNewHabitTitle(e.target.value)}
-                        placeholder={t('habits.name_placeholder')}
-                        className="w-full border border-txt-light/30 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-primary outline-none bg-canvas text-txt dark:bg-dark-canvas dark:text-txt-dark dark:border-txt-light/10"
-                    />
-                    <div className="flex gap-2 mb-4">
-                        <button 
-                            onClick={() => setNewHabitFreq('daily')}
-                            className={`flex-1 py-1.5 text-xs font-medium rounded-md border ${newHabitFreq === 'daily' ? 'bg-primary-50 border-primary text-primary dark:bg-primary/20 dark:text-white' : 'bg-surface border-txt-light/20 text-txt-muted dark:bg-dark-canvas dark:border-txt-light/10 dark:text-txt-dark-muted'}`}
-                        >
-                            {t('habits.daily')}
-                        </button>
-                        <button 
-                            onClick={() => setNewHabitFreq('weekly')}
-                            className={`flex-1 py-1.5 text-xs font-medium rounded-md border ${newHabitFreq === 'weekly' ? 'bg-primary-50 border-primary text-primary dark:bg-primary/20 dark:text-white' : 'bg-surface border-txt-light/20 text-txt-muted dark:bg-dark-canvas dark:border-txt-light/10 dark:text-txt-dark-muted'}`}
-                        >
-                            {t('habits.weekly')}
-                        </button>
-                    </div>
-                </div>
-                <div className="flex gap-2">
-                    <button 
-                        onClick={() => setIsAdding(false)}
-                        className="flex-1 py-2 text-sm text-txt-muted hover:bg-canvas rounded-lg transition-colors flex items-center justify-center gap-1 dark:text-txt-dark-muted dark:hover:bg-dark-canvas"
-                    >
-                        <X size={16} /> {t('habits.cancel')}
-                    </button>
-                    <button 
-                        onClick={handleAddNewHabit}
-                        disabled={!newHabitTitle.trim()}
-                        className="flex-1 py-2 text-sm bg-primary text-white hover:bg-primary-hover rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <Save size={16} /> {t('habits.save')}
-                    </button>
-                </div>
-            </div>
-        ) : (
-            <button 
-                onClick={() => setIsAdding(true)}
-                className="border-2 border-dashed border-txt-light/30 rounded-xl p-5 flex flex-col items-center justify-center text-txt-muted hover:border-primary hover:text-primary hover:bg-primary-50/30 transition-all min-h-[200px] group dark:border-txt-light/10 dark:text-txt-dark-muted dark:hover:bg-primary/10"
+
+                  <div className="mt-5 flex gap-1 justify-between">
+                      {[...Array(7)].map((_, i) => (
+                          <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${i < (habit.streak % 8) ? 'bg-primary' : 'bg-canvas dark:bg-dark-canvas'}`}></div>
+                      ))}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </motion.div>
+      </LayoutGroup>
+
+      {/* Add Habit Sheet (Modal) */}
+      <AnimatePresence>
+        {isAdding && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-md flex items-end md:items-center justify-center p-4"
+          >
+            <motion.div 
+               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+               transition={{ type: "spring", damping: 25, stiffness: 300 }}
+               className="bg-surface w-full max-w-md p-8 rounded-t-[3rem] md:rounded-[2.5rem] shadow-2xl dark:bg-dark-surface border-t border-white/20"
             >
-                <div className="w-12 h-12 rounded-full bg-canvas flex items-center justify-center mb-3 group-hover:bg-primary-50 transition-colors dark:bg-dark-canvas dark:group-hover:bg-primary/20">
-                    <Plus size={24} />
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-2xl font-bold">Nový návyk</h3>
+                    <button onClick={() => setIsAdding(false)} className="p-2 bg-canvas dark:bg-dark-canvas rounded-full"><X size={20}/></button>
                 </div>
-                <span className="font-medium">{t('habits.add_btn')}</span>
-            </button>
+                
+                <p className="text-sm text-txt-muted mb-4">Čo chceš dnes zlepšiť?</p>
+                
+                <input 
+                  autoFocus
+                  className="w-full bg-canvas border border-txt-light/20 p-5 rounded-2xl mb-6 outline-none focus:ring-4 focus:ring-primary/20 text-lg transition-all dark:bg-dark-canvas dark:border-white/10"
+                  placeholder="Napr. Ranná meditácia"
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCreate()}
+                />
+                
+                <div className="flex gap-4">
+                    <button onClick={() => setIsAdding(false)} className="flex-1 p-5 font-bold text-txt-muted hover:bg-canvas rounded-2xl transition-colors">Zrušiť</button>
+                    <button 
+                        onClick={handleCreate}
+                        disabled={!newTitle.trim()}
+                        className="flex-1 bg-primary text-white p-5 rounded-2xl font-bold shadow-xl shadow-primary/20 disabled:opacity-50"
+                    >
+                        Uložiť
+                    </button>
+                </div>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 };

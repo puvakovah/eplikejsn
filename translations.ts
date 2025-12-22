@@ -1,9 +1,8 @@
+
 export type Language = 'sk' | 'en';
 
 export const translations = {
   sk: {
-    // ... existing translations ...
-    // Navigation
     'nav.dashboard': 'Dashboard',
     'nav.planner': 'Plánovač Dňa',
     'nav.habits': 'Návyky',
@@ -12,7 +11,6 @@ export const translations = {
     'nav.settings': 'Nastavenia',
     'nav.logout': 'Odhlásiť sa',
     
-    // Dashboard
     'dash.welcome': 'Vitaj späť',
     'dash.quote': 'Tvoj ideálny deň začína rozhodnutím.',
     'dash.progress': 'Dnešný Progres',
@@ -28,8 +26,19 @@ export const translations = {
     'dash.sleeping': 'Spí',
     'dash.sad': 'Sklamaný',
     'dash.open_planner': 'Otvoriť Plánovač',
+    'dash.readiness': 'Pripravenosť Tela',
+    'dash.readiness.low': 'Dnes zvoľ miernejšie tempo. Tvoje telo potrebuje oddych.',
+    'dash.readiness.mid': 'Si v dobrej forme. Vyvážený deň bude ideálny.',
+    'dash.readiness.high': 'Tvoje telo je plne zregenerované. Dnes môžeš podať maximálny výkon!',
+    'dash.context.title': 'Dnešný kontext',
+    'dash.context.stress': 'Úroveň stresu',
+    'dash.context.illness': 'Cítim sa chorý/á',
+    'dash.context.cycle': 'Deň cyklu',
+    'dash.context.event': 'Výnimočná udalosť',
+    'dash.prediction.title': 'Predikcia na 3 dni',
+    'dash.prediction.fatigue': 'Očakávaná únava',
+    'dash.prediction.performance': 'Potenciálny výkon',
 
-    // Settings
     'settings.title': 'Nastavenia',
     'settings.save': 'Uložiť zmeny',
     'settings.saving': 'Ukladám...',
@@ -39,11 +48,25 @@ export const translations = {
     'settings.notifications': 'Notifikácie',
     'settings.language': 'Jazyk a Región',
     'settings.privacy': 'Súkromie a Dáta',
+    'settings.health': 'Zdravotné dáta & Sync',
+    'settings.health.desc': 'Prepojenie s Apple Health / Google Health Connect.',
+    'settings.health.enable': 'Povoliť synchronizáciu',
+    'settings.health.consent': 'Súhlasím so spracovaním mojich zdravotných dát pre účely analýzy v aplikácii IdealTwin.',
+    'settings.health.steps': 'Kroky',
+    'settings.health.hr': 'Srdcová frekvencia',
+    'settings.health.hrv': 'Variabilita srdcového rytmu (HRV)',
+    'settings.health.sleep': 'Spánok',
+    'settings.health.workouts': 'Tréningy',
+    'settings.health.calories': 'Kalórie',
+    'settings.health.auto': 'Automatická synchronizácia',
+    'settings.health.manual': 'Synchronizovať teraz',
+    'settings.health.delete': 'Vymazať synchronizované dáta',
+    'settings.health.delete_confirm': 'Naozaj chcete vymazať všetky importované zdravotné dáta?',
     'settings.danger_zone': 'Nebezpečná zóna',
     'settings.delete_account': 'Vymazať účet',
     'settings.delete_desc': 'Táto akcia je nezvratná. Prídete o všetky dáta.',
     'settings.delete_btn': 'Vymazať navždy',
-    'settings.privacy_info': 'Dáta sú bezpečne uložené lokálne alebo v Supabase databáze.',
+    'settings.privacy_info': 'Vaše zdravotné dáta sú spracované lokálne a agregované. Nikdy ich nezdieľame s tretími stranami bez vášho súhlasu.',
     
     'settings.personal_info': 'Osobné údaje',
     'settings.name': 'Meno',
@@ -51,21 +74,17 @@ export const translations = {
     'settings.email': 'Email',
     'settings.bio': 'Bio / Preferencie',
     'settings.bio_hint': 'Tieto informácie pomáhajú AI lepšie generovať denný plán.',
-    
     'settings.mode_title': 'Režim zobrazenia',
     'settings.mode_desc': 'Vyberte si medzi svetlým a tmavým motívom.',
     'settings.light': 'Svetlý',
     'settings.dark': 'Tmavý',
-    
     'settings.lang_title': 'Jazyk rozhrania',
     'settings.lang_desc': 'Vyberte jazyk aplikácie.',
-
     'settings.notif_email_title': 'Emailové notifikácie',
     'settings.notif_email_desc': 'Súhrny týždňa a dôležité míľniky.',
     'settings.notif_push_title': 'Push notifikácie',
     'settings.notif_push_desc': 'Upozornenia na začiatok a koniec naplánovaných blokov.',
 
-    // Planner
     'plan.title': 'Denný Plánovač',
     'plan.desc': 'Navrhni si svoj deň alebo nechaj AI rozhodnúť.',
     'plan.diy': 'DIY (Manuálne)',
@@ -85,7 +104,6 @@ export const translations = {
     'plan.clear_all': 'Vymazať všetko',
     'plan.confirm_clear': 'Naozaj chceš vymazať celý plán?',
 
-    // Habits
     'habits.title': 'Moje Návyky',
     'habits.find_ai': 'Nájdi nové návyky (AI)',
     'habits.ai_title': 'Opýtaj sa Gemini',
@@ -104,14 +122,12 @@ export const translations = {
     'habits.done': 'Splnené',
     'habits.done_today': 'Hotovo dnes (+15 XP)',
 
-    // Inbox
     'inbox.title': 'Inbox',
     'inbox.new': 'nové',
     'inbox.empty': 'Žiadne správy',
     'inbox.select': 'Vyber správu na čítanie',
     'inbox.back': 'Späť',
 
-    // Twin Profile
     'profile.title': 'Tvorca Dvojníka',
     'profile.generate': 'Generovať Náhľad',
     'profile.save': 'Uložiť Avatara',
@@ -140,8 +156,6 @@ export const translations = {
     'profile.hint': 'Vytvor si dokonalého dvojníka. Zvoľ si atribúty a klikni na Generovať Náhľad.'
   },
   en: {
-    // ... existing translations ...
-    // Navigation
     'nav.dashboard': 'Dashboard',
     'nav.planner': 'Day Planner',
     'nav.habits': 'Habits',
@@ -150,7 +164,6 @@ export const translations = {
     'nav.settings': 'Settings',
     'nav.logout': 'Log out',
 
-    // Dashboard
     'dash.welcome': 'Welcome back',
     'dash.quote': 'Your ideal day starts with a decision.',
     'dash.progress': 'Today\'s Progress',
@@ -166,8 +179,19 @@ export const translations = {
     'dash.sleeping': 'Sleeping',
     'dash.sad': 'Disappointed',
     'dash.open_planner': 'Open Planner',
+    'dash.readiness': 'Body Readiness',
+    'dash.readiness.low': 'Choose a gentler pace today. Your body needs rest.',
+    'dash.readiness.mid': 'You are in good shape. A balanced day will be ideal.',
+    'dash.readiness.high': 'Your body is fully recovered. You can give your maximum performance today!',
+    'dash.context.title': 'Daily Context',
+    'dash.context.stress': 'Stress level',
+    'dash.context.illness': 'I feel ill',
+    'dash.context.cycle': 'Cycle day',
+    'dash.context.event': 'Special event',
+    'dash.prediction.title': '3-Day Prediction',
+    'dash.prediction.fatigue': 'Expected fatigue',
+    'dash.prediction.performance': 'Potential performance',
 
-    // Settings
     'settings.title': 'Settings',
     'settings.save': 'Save changes',
     'settings.saving': 'Saving...',
@@ -177,11 +201,25 @@ export const translations = {
     'settings.notifications': 'Notifications',
     'settings.language': 'Language & Region',
     'settings.privacy': 'Privacy & Data',
+    'settings.health': 'Health Data & Sync',
+    'settings.health.desc': 'Connect with Apple Health / Google Health Connect.',
+    'settings.health.enable': 'Enable synchronization',
+    'settings.health.consent': 'I agree to the processing of my health data for analysis purposes in the IdealTwin app.',
+    'settings.health.steps': 'Steps',
+    'settings.health.hr': 'Heart Rate',
+    'settings.health.hrv': 'Heart Rate Variability (HRV)',
+    'settings.health.sleep': 'Sleep',
+    'settings.health.workouts': 'Workouts',
+    'settings.health.calories': 'Calories',
+    'settings.health.auto': 'Automatic synchronization',
+    'settings.health.manual': 'Sync now',
+    'settings.health.delete': 'Delete synced data',
+    'settings.health.delete_confirm': 'Do you really want to delete all imported health data?',
     'settings.danger_zone': 'Danger Zone',
     'settings.delete_account': 'Delete Account',
     'settings.delete_desc': 'This action is irreversible. You will lose all data.',
     'settings.delete_btn': 'Delete Forever',
-    'settings.privacy_info': 'Data is securely stored locally or in Supabase.',
+    'settings.privacy_info': 'Your health data is processed locally and aggregated. We never share it with third parties without your consent.',
     
     'settings.personal_info': 'Personal Info',
     'settings.name': 'First Name',
@@ -189,21 +227,17 @@ export const translations = {
     'settings.email': 'Email',
     'settings.bio': 'Bio / Preferences',
     'settings.bio_hint': 'This info helps AI generate better plans.',
-    
     'settings.mode_title': 'Display Mode',
     'settings.mode_desc': 'Choose between light and dark theme.',
     'settings.light': 'Light',
     'settings.dark': 'Dark',
-    
     'settings.lang_title': 'Interface Language',
     'settings.lang_desc': 'Choose application language.',
-
     'settings.notif_email_title': 'Email Notifications',
     'settings.notif_email_desc': 'Weekly summaries and important milestones.',
     'settings.notif_push_title': 'Push Notifications',
     'settings.notif_push_desc': 'Alerts for scheduled blocks start/end.',
 
-    // Planner
     'plan.title': 'Day Planner',
     'plan.desc': 'Design your day or let AI decide.',
     'plan.diy': 'DIY (Manual)',
@@ -223,7 +257,6 @@ export const translations = {
     'plan.clear_all': 'Clear All',
     'plan.confirm_clear': 'Are you sure you want to clear the entire plan?',
 
-    // Habits
     'habits.title': 'My Habits',
     'habits.find_ai': 'Find new habits (AI)',
     'habits.ai_title': 'Ask Gemini',
@@ -242,14 +275,12 @@ export const translations = {
     'habits.done': 'Done',
     'habits.done_today': 'Done today (+15 XP)',
 
-    // Inbox
     'inbox.title': 'Inbox',
     'inbox.new': 'new',
     'inbox.empty': 'No messages',
     'inbox.select': 'Select a message to read',
     'inbox.back': 'Back',
 
-    // Twin Profile
     'profile.title': 'Twin Creator',
     'profile.generate': 'Generate Preview',
     'profile.save': 'Save Avatar',
@@ -270,7 +301,6 @@ export const translations = {
     'profile.shoes': 'Shoes',
     'profile.animate_title': 'Animate Twin',
     'profile.beta': 'BETA',
-    'profile.animate_desc': 'Your character can come to life! The "Animate" feature plays a sample animation of your avatar in motion.',
     'profile.animate_btn': 'Start Animation',
     'profile.preparing': 'Preparing video...',
     'profile.video_placeholder': 'Video not generated yet',

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DayPlan, TimeBlock, ActivityType, UserProfile, InboxMessage } from './types';
 import { generateIdealDayPlan } from './geminiService';
@@ -13,9 +14,11 @@ interface PlannerProps {
   user: UserProfile; 
   setUser: (u: UserProfile) => void; 
   lang?: Language;
+  // Added missing isOnline prop
+  isOnline?: boolean;
 }
 
-const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPreferences, user, setUser, lang = 'sk' }) => {
+const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPreferences, user, setUser, lang = 'sk', isOnline }) => {
   const [activeTab, setActiveTab] = useState<'plan' | 'reality'>('plan');
   const [mode, setMode] = useState<'DIY' | 'AI'>('DIY');
   const [isGenerating, setIsGenerating] = useState(false);

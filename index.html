@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="sk">
   <head>
@@ -5,9 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>IdealTwin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-      body { font-family: 'Inter', sans-serif; }
+      body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(74, 109, 136, 0.2); border-radius: 10px; }
     </style>
   <script type="importmap">
 {
@@ -18,62 +22,28 @@
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^11.13.1",
+    "@capacitor/haptics": "https://esm.sh/@capacitor/haptics@6.0.0",
+    "@capacitor/push-notifications": "https://esm.sh/@capacitor/push-notifications@6.0.0",
+    "@capacitor/core": "https://esm.sh/@capacitor/core@6.0.0"
   }
 }
 </script>
 <script>
   tailwind.config = {
-    darkMode: 'class', // Critical for manual toggle
+    darkMode: 'class',
     theme: {
       extend: {
         colors: {
-          // Fokusovaná Hĺbka Palette
-          primary: {
-            DEFAULT: '#4A6D88', 
-            hover: '#3b586e',
-            50: '#edf2f6',      
-          },
-          secondary: {
-            DEFAULT: '#85B09A', 
-            hover: '#6a9680',
-            50: '#f2f7f5'
-          },
-          habit: {
-            DEFAULT: '#E9C46A', 
-            hover: '#d1af58',
-            10: '#fdf8e8'
-          },
-          canvas: '#F8F9FA',    // Light Background
-          surface: '#FFFFFF',   // Light Card
-          
-          // Dark Mode Colors
-          'dark-canvas': '#0f172a', // Dark Navy Background
-          'dark-surface': '#1e293b', // Dark Card
-          
-          txt: {
-            DEFAULT: '#212529', 
-            muted: '#6c757d',  
-            light: '#adb5bd',
-            
-            // Dark Mode Text
-            dark: '#f1f5f9',
-            'dark-muted': '#94a3b8'
-          }
-        },
-        animation: {
-          'fade-in': 'fadeIn 0.5s ease-out',
-          'slide-in-down': 'slideInDown 0.3s ease-out',
-        },
-        keyframes: {
-          fadeIn: {
-            '0%': { opacity: '0' },
-            '100%': { opacity: '1' },
-          },
-          slideInDown: {
-            '0%': { transform: 'translateY(-20px)', opacity: '0' },
-            '100%': { transform: 'translateY(0)', opacity: '1' },
-          }
+          primary: { DEFAULT: '#4A6D88', hover: '#3b586e', 50: '#edf2f6' },
+          secondary: { DEFAULT: '#85B09A', hover: '#6a9680', 50: '#f2f7f5' },
+          habit: { DEFAULT: '#E9C46A', hover: '#d1af58', 10: '#fdf8e8' },
+          canvas: '#F8F9FA',
+          surface: '#FFFFFF',
+          'dark-canvas': '#0f172a',
+          'dark-surface': '#1e293b',
+          txt: { DEFAULT: '#212529', muted: '#6c757d', light: '#adb5bd', dark: '#f1f5f9', 'dark-muted': '#94a3b8' }
         }
       }
     }
@@ -81,7 +51,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-canvas text-txt antialiased dark:bg-dark-canvas dark:text-txt-dark transition-colors duration-300">
+  <body class="bg-canvas text-txt antialiased dark:bg-dark-canvas dark:text-txt-dark transition-colors duration-300 overflow-x-hidden">
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

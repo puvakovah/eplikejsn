@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { 
     SearchResult, AvatarExpression, 
@@ -90,14 +91,9 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackValue: T): Prom
   ]);
 };
 
+// FIX: Initialize GoogleGenAI strictly using process.env.API_KEY as per the library guidelines
 const getAiClient = () => {
-  try {
-      return new GoogleGenAI({ 
-          apiKey: process.env.API_KEY || ''
-      });
-  } catch (e) {
-      return null;
-  }
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 const FALLBACK_PLAN = {
@@ -115,7 +111,6 @@ export const generateIdealDayPlan = async (
   preferences: string
 ): Promise<any> => {
   const ai = getAiClient();
-  if (!ai) return FALLBACK_PLAN;
   
   const prompt = `
     Create an optimized daily schedule (JSON) for a user with these goals: ${goals.join(", ")}.
@@ -124,9 +119,10 @@ export const generateIdealDayPlan = async (
   `;
 
   try {
+    // FIX: Using gemini-3-flash-preview for text generation tasks
     const response = await withTimeout(
         ai.models.generateContent({
-            model: "gemini-2.5-flash", 
+            model: "gemini-3-flash-preview", 
             contents: prompt,
             config: { responseMimeType: "application/json" },
         }),
@@ -135,6 +131,7 @@ export const generateIdealDayPlan = async (
     );
 
     if (!response) throw new Error("Timeout");
+    // FIX: Use .text property directly
     let text = response.text || "{}";
     text = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(text);
@@ -149,13 +146,13 @@ export const generateIdealDayPlan = async (
 
 export const getHabitSuggestions = async (goal: string): Promise<{ text: string; sources: SearchResult[] }> => {
   const ai = getAiClient();
-  const fallback = { text: "Tip: Pite viac vody a hýbte sa. (Offline režim)", sources: [] };
-  if (!ai) return fallback;
+  const fallback = { text: "Tip: Pite viac vody and hýbte sa. (Offline režim)", sources: [] };
   
   try {
+    // FIX: Using gemini-3-flash-preview with googleSearch tool
     const response = await withTimeout(
         ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             contents: `Suggest 3 scientifically proven habits to help achieve: "${goal}".`,
             config: { tools: [{ googleSearch: {} }] },
         }),
@@ -163,6 +160,7 @@ export const getHabitSuggestions = async (goal: string): Promise<{ text: string;
         null
     );
     if (!response) return fallback;
+    // FIX: Use .text property directly
     const text = response.text || "Žiadne návrhy.";
     const sources: SearchResult[] = [];
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
