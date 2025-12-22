@@ -6,8 +6,8 @@ import Planner from './Planner';
 import Habits from './Habits';
 import TwinProfile from './TwinProfile';
 import Inbox from './Inbox';
-// Correct PascalCase import for Settings component
-import Settings from './Settings';
+// Corrected lowercase import
+import Settings from './settings';
 import Auth from './Auth';
 import { db } from './db';
 import { LayoutDashboard, Calendar, ListChecks, UserCircle, LogOut, Loader2, Mail, Settings as SettingsIcon, CloudOff, Cloud } from 'lucide-react';
@@ -66,6 +66,13 @@ const App: React.FC = () => {
         setHabits(res.data.habits || []);
         setDayPlan(res.data.dayPlan);
         setIsAuthenticated(true);
+        
+        // Initial theme logic
+        const prefs = res.data.user.preferences;
+        if (prefs?.theme) {
+            const isDark = prefs.theme === 'dark' || (prefs.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.classList.toggle('dark', isDark);
+        }
       }
       setIsLoading(false);
     };

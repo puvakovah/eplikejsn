@@ -1,4 +1,5 @@
 
+
 export type AvatarExpression = 'happy' | 'sad' | 'sleepy' | 'sleeping';
 export type AvatarGender = 'Male' | 'Female';
 export type AvatarSkin = 'Fair' | 'Light' | 'Medium' | 'Olive' | 'Brown' | 'Dark';
@@ -41,7 +42,8 @@ export interface HealthSyncConfig {
 }
 
 export interface UserPreferences {
-  theme: 'light' | 'dark';
+  // Fix: Added 'system' to allow the app to follow OS-level light/dark mode settings
+  theme: 'light' | 'dark' | 'system';
   language: 'sk' | 'en';
   notificationsEmail: boolean;
   notificationsPush: boolean;

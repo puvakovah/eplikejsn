@@ -21,9 +21,8 @@ const Avatar: React.FC<AvatarProps> = ({ user, expression, size = 'md' }) => {
     sm: 'w-16 h-16', md: 'w-32 h-32', lg: 'w-48 h-48', xl: 'w-64 h-64'
   };
 
-  // Shadow glow instead of aura circle
-  const glowStyle = state.glow ? 'drop-shadow-[0_0_12px_rgba(133,176,154,0.5)]' : '';
-  const energyFilters = energy < 35 ? 'saturate(0.4) brightness(0.9)' : '';
+  // Avatar filtre pri nízkej energii
+  const energyFilters = energy < 30 ? 'saturate(0.4) brightness(0.9) contrast(1.1)' : '';
 
   return (
     <motion.div 
@@ -36,11 +35,11 @@ const Avatar: React.FC<AvatarProps> = ({ user, expression, size = 'md' }) => {
       transition={{ type: 'spring', stiffness: 100 }}
     >
       <motion.div 
-        className={`relative z-10 w-full h-full flex items-center justify-center ${glowStyle}`}
+        className="relative z-10 w-full h-full flex items-center justify-center"
         style={{ filter: energyFilters }}
         animate={{
             scale: state.glow ? [1, 1.05, 1] : [1, 1.02, 1],
-            rotate: energy < 35 ? [0, -1, 1, 0] : [0, 0]
+            rotate: energy < 30 ? [0, -1, 1, 0] : [0, 0]
         }}
         transition={{ 
             repeat: Infinity, 
@@ -57,7 +56,13 @@ const Avatar: React.FC<AvatarProps> = ({ user, expression, size = 'md' }) => {
 
       <div className="absolute inset-0 z-30 pointer-events-none">
         {finalExpression === 'sleeping' && (
-          <motion.div animate={{ y: [-10, -30], opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute top-0 right-4 text-primary font-black text-xl select-none">Zzz</motion.div>
+          <motion.div 
+            animate={{ y: [-10, -40], opacity: [0, 1, 0] }} 
+            transition={{ repeat: Infinity, duration: 3 }} 
+            className="absolute top-0 right-4 text-primary font-black text-2xl select-none"
+          >
+            Zzz
+          </motion.div>
         )}
         {finalExpression === 'sleepy' && (
           <div className="absolute top-0 right-0 text-xl animate-pulse select-none">🥱</div>

@@ -7,78 +7,42 @@ export interface VisualAsset {
     requirementLevel: number;
     icon: string;
     promptModifier: string;
-    className?: string;
 }
-
-export const CATEGORY_UNLOCKS = {
-    BASIC: 1,      // Pohlavie, pleť
-    CLOTHING: 2,   // Viac druhov oblečenia
-    SHOES: 3,      // Topánky
-    GLASSES: 4,    // Okuliare
-    HEADWEAR: 5,   // Pokrývky hlavy
-    ACCESSORIES: 6  // Doplnky a Bundy
-};
-
-export const ASSET_STORE: VisualAsset[] = [
-    { 
-        id: 'outfit_lvl_2', 
-        name: 'Módny Set', 
-        category: 'outfit', 
-        requirementLevel: 2, 
-        icon: '👕',
-        promptModifier: 'wearing modern trendy designer outfit'
-    },
-    { 
-        id: 'shoes_lvl_3', 
-        name: 'Bežecké Tenisky', 
-        category: 'shoes', 
-        requirementLevel: 3, 
-        icon: '👟',
-        promptModifier: 'wearing high-end athletic sneakers'
-    },
-    { 
-        id: 'glasses_lvl_4', 
-        name: 'Focus Okuliare', 
-        category: 'accessory', 
-        requirementLevel: 4, 
-        icon: '👓',
-        promptModifier: 'wearing smart tech glasses'
-    },
-    { 
-        id: 'hat_level_5', 
-        name: 'Šiltovka Ambície', 
-        category: 'headwear', 
-        requirementLevel: 5, 
-        icon: '🧢',
-        promptModifier: 'wearing a cool blue baseball cap'
-    },
-    { 
-        id: 'jacket_level_6', 
-        name: 'Štýlová Bunda', 
-        category: 'outfit', 
-        requirementLevel: 6, 
-        icon: '🧥',
-        promptModifier: 'wearing a stylish warm winter jacket'
-    }
-];
 
 export const LEVELING_SYSTEM = {
     xpValues: {
-      PLAN_DAY: 50,
-      COMPLETE_WORK_BLOCK: 20,
-      COMPLETE_HABIT: 15,
-      PERFECT_DAY_BONUS: 100,
-      CREATE_HABIT: 10,
-      COMPLETE_REST_BLOCK: 10,
-      TRACK_REALITY: 5,
-      STREAK_3_DAYS: 30,
-      STREAK_7_DAYS: 70
+        PLAN_DAY: 50,
+        COMPLETE_WORK_BLOCK: 15,
+        COMPLETE_REST_BLOCK: 5,
+        TRACK_REALITY: 2,
+        PERFECT_DAY_BONUS: 100,
+        COMPLETE_HABIT: 15,
+        CREATE_HABIT: 10,
+        STREAK_3_DAYS: 30,
+        STREAK_7_DAYS: 70
     },
     config: {
-        maxBlocksPerDay: 10,
-        maxHabitsPerDay: 5
+        maxBlocksPerDay: 12,
+        maxHabitsPerDay: 8
     }
 };
+
+export const CATEGORY_UNLOCKS = {
+    BASIC: 1,      // Pohlavie, pleť
+    CLOTHING: 2,   // Oblečenie
+    SHOES: 3,      // Topánky
+    GLASSES: 4,    // Okuliare
+    HEADWEAR: 5,   // Šiltovky
+    ACCESSORIES: 6 // Doplnky
+};
+
+export const ASSET_STORE: VisualAsset[] = [
+    { id: 'outfit_lvl_2', name: 'Módny Set', category: 'outfit', requirementLevel: 2, icon: '👕', promptModifier: 'modern trendy outfit' },
+    { id: 'shoes_lvl_3', name: 'Bežecké Tenisky', category: 'shoes', requirementLevel: 3, icon: '👟', promptModifier: 'high-end athletic sneakers' },
+    { id: 'glasses_lvl_4', name: 'Focus Okuliare', category: 'accessory', requirementLevel: 4, icon: '👓', promptModifier: 'smart tech glasses' },
+    { id: 'hat_level_5', name: 'Šiltovka Ambície', category: 'headwear', requirementLevel: 5, icon: '🧢', promptModifier: 'cool blue baseball cap' },
+    { id: 'jacket_level_6', name: 'Štýlová Bunda', category: 'outfit', requirementLevel: 6, icon: '🧥', promptModifier: 'stylish warm winter jacket' }
+];
 
 export const calculateLevelData = (totalXp: number) => {
     let level = 1;
@@ -124,18 +88,21 @@ export const calculateEnergy = (health?: AggregatedHealthData, context?: DailyCo
     }
 
     const hoursActive = Math.max(0, timeInHours - 7);
-    let drainRate = 4.8; // ~4.8% za hodinu
+    let decayRate = 4.5; // ~4.5% za hodinu
 
-    if (context) {
-        if (context.isIll || context.stressLevel > 0.6) {
-            drainRate *= 2; 
-        }
+    // Zrýchlený pokles pri vysokom strese (ak sú dáta syncnuté)
+    if (context && context.stressLevel > 0.6) {
+        decayRate *= 1.6;
+    }
+    if (health && health.avgHeartRate && health.avgHeartRate > 90) {
+        decayRate *= 1.25;
     }
 
-    let energy = startEnergy - (hoursActive * drainRate);
+    let energy = startEnergy - (hoursActive * decayRate);
 
+    // Nočný režim
     if (hour >= 23 || hour < 7) {
-        energy = Math.min(energy, 10);
+        energy = Math.min(energy, 15);
     }
 
     return Math.min(100, Math.max(0, Math.round(energy)));
@@ -149,19 +116,19 @@ export const getAvatarState = (energy: number): { expression: AvatarExpression; 
     let opacity = 1.0;
     let animationSpeed = 1.0;
 
-    if (energy < 10 || hour >= 23 || hour < 6) {
+    if (hour >= 22 || hour < 6 || energy < 15) {
         expression = 'sleeping';
         animationSpeed = 0.5;
         opacity = 0.8;
-    } else if (energy < 35) {
+    } else if (energy < 30) {
         expression = 'sleepy';
-        animationSpeed = 0.7;
+        animationSpeed = 0.75;
         opacity = 0.95;
-    } else if (energy >= 75) {
+    } else if (energy >= 80) {
         expression = 'happy';
         glow = true;
         animationSpeed = 1.2;
     }
 
     return { expression, glow, opacity, animationSpeed };
-};
+}

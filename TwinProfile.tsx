@@ -33,7 +33,7 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
 
   const handleGeneratePreview = async () => {
     setIsGenerating(true);
-    setIsImageLoading(true); // Loading starts here
+    setIsImageLoading(true); 
     try {
         const aiUrl = await getPresetAvatarUrl(
             level,
@@ -52,7 +52,6 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
             localConfig.shoesColor
         );
         setUser({ ...user, avatarUrl: aiUrl, avatarConfig: localConfig });
-        // isGenerating ends, but isImageLoading remains true until img.onLoad
     } catch (e) {
         console.error("AI Generation failed", e);
         setIsImageLoading(false);
@@ -83,18 +82,17 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in pb-20">
-      {/* Visual Preview */}
       <div className="bg-surface p-8 rounded-[3rem] border border-txt-light/10 shadow-xl dark:bg-dark-surface flex flex-col items-center justify-center relative min-h-[500px]">
          
          {showLoader && (
              <div className="absolute inset-0 z-50 bg-surface/90 dark:bg-dark-surface/90 flex flex-col items-center justify-center rounded-[3rem] text-center p-6 backdrop-blur-sm">
                  <Loader2 size={48} className="text-primary animate-spin mb-4" />
                  <h4 className="font-black uppercase tracking-tighter text-txt dark:text-white">Generujem Twin Dvojníka</h4>
-                 <p className="text-sm text-txt-muted mt-2">Tvoj Twin sa práve generuje cez AI... Prosím počkaj.</p>
+                 <p className="text-sm text-txt-muted mt-2 font-bold">To môže chvíľu trvať... Prosím počkaj.</p>
              </div>
          )}
          
-         <div className={isImageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-500'}>
+         <div className={isImageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-1000'}>
              <Avatar user={{ ...user, avatarConfig: localConfig }} size="xl" />
              {user.avatarUrl && (
                  <img 
@@ -125,11 +123,9 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
          </div>
       </div>
 
-      {/* Config Panel */}
       <div className="space-y-6 overflow-y-auto max-h-[75vh] pr-4 custom-scrollbar">
-          {/* Level 1 */}
           <section className="bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm">
-              <SectionHeader icon={User} title="Základ" req={CATEGORY_UNLOCKS.BASIC} />
+              <SectionHeader icon={User} title="Telo a Pleť" req={CATEGORY_UNLOCKS.BASIC} />
               <div className="grid grid-cols-2 gap-3 mb-6">
                   <button onClick={() => updateConfig('gender', 'Male')} className={`py-3 rounded-xl border-2 font-bold transition-all ${localConfig.gender === 'Male' ? 'border-primary bg-primary/5 text-primary' : 'border-transparent bg-canvas dark:bg-dark-canvas'}`}>Muž</button>
                   <button onClick={() => updateConfig('gender', 'Female')} className={`py-3 rounded-xl border-2 font-bold transition-all ${localConfig.gender === 'Female' ? 'border-primary bg-primary/5 text-primary' : 'border-transparent bg-canvas dark:bg-dark-canvas'}`}>Žena</button>
@@ -141,14 +137,14 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
               </div>
           </section>
 
-          {/* Level 2 */}
-          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.CLOTHING) ? 'opacity-50' : ''}`}>
+          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.CLOTHING) ? 'opacity-50 pointer-events-none' : ''}`}>
               <SectionHeader icon={Shirt} title="Oblečenie" req={CATEGORY_UNLOCKS.CLOTHING} />
               <div className="grid grid-cols-2 gap-3">
                   <select disabled={isLocked(2)} value={localConfig.topType} onChange={(e) => updateConfig('topType', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none">
                       <option value="T-Shirt">Tričko</option>
                       <option value="Hoodie">Mikina</option>
                       <option value="Shirt">Košeľa</option>
+                      <option value="Jacket">Bunda</option>
                   </select>
                   <select disabled={isLocked(2)} value={localConfig.bottomType} onChange={(e) => updateConfig('bottomType', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none">
                       <option value="Jeans">Džínsy</option>
@@ -158,8 +154,7 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
               </div>
           </section>
 
-          {/* Level 3 */}
-          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.SHOES) ? 'opacity-50' : ''}`}>
+          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.SHOES) ? 'opacity-50 pointer-events-none' : ''}`}>
               <SectionHeader icon={Footprints} title="Obuv" req={CATEGORY_UNLOCKS.SHOES} />
               <select disabled={isLocked(3)} value={localConfig.shoesType} onChange={(e) => updateConfig('shoesType', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
                   <option value="Sneakers">Tenisky</option>
@@ -168,8 +163,7 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
               </select>
           </section>
 
-          {/* Level 4 */}
-          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.GLASSES) ? 'opacity-50' : ''}`}>
+          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.GLASSES) ? 'opacity-50 pointer-events-none' : ''}`}>
               <SectionHeader icon={Glasses} title="Okuliare" req={CATEGORY_UNLOCKS.GLASSES} />
               <select disabled={isLocked(4)} value={localConfig.glasses} onChange={(e) => updateConfig('glasses', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
                   <option value="None">Bez okuliarov</option>
@@ -178,13 +172,13 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
               </select>
           </section>
 
-          {/* Level 5 */}
-          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.HEADWEAR) ? 'opacity-50' : ''}`}>
-              <SectionHeader icon={GraduationCap} title="Pokrývky hlavy" req={CATEGORY_UNLOCKS.HEADWEAR} />
+          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.HEADWEAR) ? 'opacity-50 pointer-events-none' : ''}`}>
+              <SectionHeader icon={GraduationCap} title="Šiltovky a Doplnky" req={CATEGORY_UNLOCKS.HEADWEAR} />
               <select disabled={isLocked(5)} value={localConfig.headwear} onChange={(e) => updateConfig('headwear', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
                   <option value="None">Žiadne</option>
                   <option value="Cap">Šiltovka</option>
                   <option value="Hat">Klobúk</option>
+                  <option value="Beanie">Čiapka</option>
               </select>
           </section>
       </div>

@@ -28,7 +28,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 's
   const contextToday = user.dailyContext?.[today] || { stressLevel: 0.2, isIll: user.isSick };
   const energy = calculateEnergy(healthToday, contextToday);
 
-  // Dynamic next reward logic
+  // Dynamická odmena podľa levelu
   const nextReward = ASSET_STORE
     .filter(a => a.requirementLevel > levelData.level)
     .sort((a, b) => a.requirementLevel - b.requirementLevel)[0];
@@ -49,7 +49,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 's
             <motion.button 
                 whileTap={{ scale: 0.95 }} 
                 onClick={() => onNavigate('planner')} 
-                className="flex-1 md:flex-none bg-primary text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
+                className="flex-1 md:flex-none bg-primary text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
             >
                 <Zap size={18} /> {t('dash.open_planner')}
             </motion.button>
@@ -57,10 +57,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 's
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Progress Card */}
+        {/* Úroveň a XP */}
         <div className="lg:col-span-4 bg-surface p-8 rounded-[2.5rem] border border-txt-light/10 shadow-sm dark:bg-dark-surface flex flex-col justify-between">
           <div>
-            <h3 className="text-xs font-black text-txt-muted uppercase tracking-widest mb-6">Úroveň & Skúsenosti</h3>
+            <h3 className="text-xs font-black text-txt-muted uppercase tracking-widest mb-6">Progres Dvojníka</h3>
             <div className="flex items-end justify-between mb-2">
                 <span className="text-5xl font-black text-txt dark:text-white">{levelData.level}</span>
                 <span className="text-sm font-bold text-txt-muted">{Math.floor(levelData.currentLevelXp)} / {500 + (levelData.level - 1) * 250} XP</span>
@@ -76,7 +76,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 's
           
           <div className="pt-6 border-t border-txt-light/10 dark:border-white/10">
              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xs font-black uppercase tracking-widest text-txt-muted">Dnešný progres</h4>
+                <h4 className="text-xs font-black uppercase tracking-widest text-txt-muted">Plán dňa</h4>
                 <span className="text-lg font-bold">{progress}%</span>
              </div>
              <div className="w-full h-2 bg-canvas dark:bg-dark-canvas rounded-full overflow-hidden">
@@ -88,18 +88,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 's
           </div>
         </div>
 
-        {/* Central Display */}
+        {/* Centrálny Avatar */}
         <div className="lg:col-span-4 bg-surface p-10 rounded-[3rem] border border-txt-light/10 shadow-lg flex flex-col items-center justify-center relative dark:bg-dark-surface">
            <Avatar user={user} size="xl" />
            <div className="mt-8 text-center">
                 <div className="text-xl font-black text-txt dark:text-white uppercase tracking-tighter">
-                  {energy > 75 ? 'Dvojník je Nabitý' : energy > 35 ? 'Dvojník je Aktívny' : 'Dvojník je Unavený'}
+                  {energy > 70 ? 'Plný potenciál' : energy > 35 ? 'Aktívny režim' : 'Potreba regenerácie'}
                 </div>
-                <div className="text-sm text-txt-muted mt-1 font-bold">Aktuálna energia: {energy}%</div>
+                <div className="text-sm text-txt-muted mt-1 font-bold">Úroveň energie: {energy}%</div>
            </div>
         </div>
 
-        {/* Rewards & Stats */}
+        {/* Energia a Ďalšia odmena */}
         <div className="lg:col-span-4 flex flex-col gap-6">
             <div className="bg-surface p-8 rounded-[2.5rem] border border-txt-light/10 shadow-sm dark:bg-dark-surface">
                 <div className="flex items-center justify-between mb-6">
@@ -109,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 's
                 <div className="flex items-center gap-6">
                     <div className="text-5xl font-black text-primary">{energy}%</div>
                     <div className="text-xs text-txt-muted font-medium italic max-w-[140px]">
-                        {energy > 80 ? "Plná sila na dôležité ciele!" : energy > 40 ? "Udržuj tempo a nezabúdaj piť." : "Už len to najdôležitejšie."}
+                        {energy > 80 ? "Si v špičkovej forme. Ideálny čas na náročné úlohy!" : energy > 35 ? "Udržuj tempo a nezabudni na hydratáciu." : "Čas na oddych a prípravu na zajtra."}
                     </div>
                 </div>
             </div>
@@ -125,11 +125,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 's
                         </div>
                         <div>
                             <p className="text-sm font-black uppercase tracking-tight text-txt dark:text-white">{nextReward.name}</p>
-                            <p className="text-xs text-txt-muted font-bold mt-1">Level {nextReward.requirementLevel}</p>
+                            <p className="text-xs text-txt-muted font-bold mt-1">Vyžaduje Level {nextReward.requirementLevel}</p>
                         </div>
                     </div>
                 ) : (
-                    <p className="text-sm font-bold text-habit">Všetky odmeny získané!</p>
+                    <p className="text-sm font-bold text-habit">Všetky dostupné odmeny odomknuté!</p>
                 )}
             </div>
         </div>

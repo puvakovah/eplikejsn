@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
     SearchResult, AvatarExpression, 
@@ -27,29 +28,22 @@ export const getPresetAvatarUrl = async (
 ): Promise<string> => {
   
   const genderDesc = gender === 'Male' ? "handsome man" : "beautiful woman";
+  const hairDesc = (level >= CATEGORY_UNLOCKS.CLOTHING && hairStyle !== 'Bald') ? `${hairStyle} ${hairColor} hair` : "short basic hair";
   
-  const canUseClothes = level >= CATEGORY_UNLOCKS.CLOTHING;
-  const canUseShoes = level >= CATEGORY_UNLOCKS.SHOES;
-  const canUseGlasses = level >= CATEGORY_UNLOCKS.GLASSES;
-  const canUseHeadwear = level >= CATEGORY_UNLOCKS.HEADWEAR;
-
-  const hairDesc = (level >= CATEGORY_UNLOCKS.CLOTHING && hairStyle !== 'Bald') ? `${hairStyle} ${hairColor} hair` : "short generic hair";
-  
-  // Prompt updated with bottoms and colors
-  const clothingDesc = canUseClothes 
+  const clothingDesc = level >= CATEGORY_UNLOCKS.CLOTHING 
     ? `wearing a ${topColor} ${topType} and ${bottomColor} ${bottomType}` 
-    : "wearing a simple basic gray t-shirt and standard pants";
+    : "wearing a simple basic gray t-shirt and dark pants";
 
-  const shoesDesc = canUseShoes ? `with ${shoesColor} ${shoesType}` : "standing barefoot";
-  const glassesDesc = (canUseGlasses && glasses !== 'None') ? `wearing ${glasses} glasses` : "";
-  const headDesc = (canUseHeadwear && headwear !== 'None') ? `wearing a ${headwear}` : "";
+  const shoesDesc = level >= CATEGORY_UNLOCKS.SHOES ? `with ${shoesColor} ${shoesType}` : "standing barefoot";
+  const glassesDesc = (level >= CATEGORY_UNLOCKS.GLASSES && glasses !== 'None') ? `wearing ${glasses} glasses` : "";
+  const headDesc = (level >= CATEGORY_UNLOCKS.HEADWEAR && headwear !== 'None') ? `wearing a ${headwear}` : "";
 
   let exprPrompt = "happy confident smile, looking at camera";
-  if (expression === 'sad') exprPrompt = "unhappy face, disappointed expression, looking down";
+  if (expression === 'sad') exprPrompt = "unhappy face, disappointed expression";
   if (expression === 'sleepy') exprPrompt = "yawning face, very tired eyes";
   if (expression === 'sleeping') exprPrompt = "sleeping peacefully, eyes closed";
 
-  const prompt = `3D digital render of a ${genderDesc} character with ${skin} skin, ${hairDesc}, ${clothingDesc}, ${shoesDesc}, ${glassesDesc}, ${headDesc}, ${exprPrompt}, pure white studio background, cinematic lighting, 8k high resolution, Pixar animation style character design, full body shot, centered.`;
+  const prompt = `3D digital render of a ${genderDesc} character with ${skin} skin, ${hairDesc}, ${clothingDesc}, ${shoesDesc}, ${glassesDesc}, ${headDesc}, ${exprPrompt}, pure white background, cinematic lighting, 8k high resolution, Pixar animation style character design, full body shot, centered.`;
 
   const uniqueString = `${level}-${gender}-${skin}-${hairStyle}-${hairColor}-${eyeColor}-${glasses}-${headwear}-${topType}-${topColor}-${bottomType}-${bottomColor}-${shoesType}-${shoesColor}-${expression}`;
   
@@ -64,15 +58,9 @@ export const getPresetAvatarUrl = async (
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: prompt }] },
-      config: {
-        seed: seed,
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
-      }
+      config: { seed: seed, imageConfig: { aspectRatio: "1:1" } }
     });
 
-    // Correct way to iterate over parts to find inlineData
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
@@ -81,11 +69,10 @@ export const getPresetAvatarUrl = async (
       }
     }
   } catch (err) {
-    console.error("Gemini Image generation failed, falling back to pollinations", err);
+    console.warn("AI generation error, using fallback provider", err);
   }
 
-  // Fallback
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${seed}&width=512&height=1024&model=flux`; 
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${seed}&width=512&height=512&model=flux`; 
 };
 
 export const generateIdealDayPlan = async (goals: string[], preferences: string) => {
@@ -104,10 +91,10 @@ export const generateIdealDayPlan = async (goals: string[], preferences: string)
                             type: Type.OBJECT,
                             properties: {
                                 title: { type: Type.STRING },
-                                startTime: { type: Type.STRING, description: "Formát HH:mm" },
-                                endTime: { type: Type.STRING, description: "Formát HH:mm" },
-                                type: { type: Type.STRING, description: "work|rest|habit|exercise|social|health|other" },
-                                reason: { type: Type.STRING, description: "Stručné vysvetlenie prečo je tento blok v pláne" }
+                                startTime: { type: Type.STRING },
+                                endTime: { type: Type.STRING },
+                                type: { type: Type.STRING },
+                                reason: { type: Type.STRING }
                             },
                             required: ["title", "startTime", "endTime", "type"]
                         }
@@ -117,10 +104,7 @@ export const generateIdealDayPlan = async (goals: string[], preferences: string)
             }
         }
     });
-
-    const text = response.text;
-    if (!text) throw new Error("AI returned empty plan");
-    return JSON.parse(text);
+    return JSON.parse(response.text || '{"blocks":[]}');
 };
 
 export const getHabitSuggestions = async (query: string) => {
@@ -128,18 +112,12 @@ export const getHabitSuggestions = async (query: string) => {
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Aké sú najlepšie návyky pre: ${query}? Odpovedaj v slovenčine.`,
-        config: {
-            tools: [{ googleSearch: {} }]
-        }
+        config: { tools: [{ googleSearch: {} }] }
     });
-
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
-        title: chunk.web?.title || 'Webový zdroj',
+        title: chunk.web?.title || 'Zdroj',
         uri: chunk.web?.uri || ''
     })).filter((s: any) => s.uri) || [];
 
-    return {
-        text: response.text || "Nepodarilo sa vygenerovať odporúčania.",
-        sources
-    };
+    return { text: response.text || "Chyba.", sources };
 };
