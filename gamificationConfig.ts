@@ -1,11 +1,61 @@
 
+// DO NOT use or import GoogleGenerativeAI from @google/genai
+
 import { AvatarExpression, AggregatedHealthData, DailyContext } from "./types";
 
-// Gamification System Configuration - Dynamic Progressive Growth
+export interface VisualAsset {
+    id: string;
+    name: string;
+    category: 'headwear' | 'accessory' | 'effect' | 'outfit';
+    requirementLevel: number;
+    icon: string;
+    className?: string; // Pre špeciálne CSS efekty
+    // Added promptModifier to support AI image generation in geminiService
+    promptModifier: string;
+}
+
+// --- AGILE ASSET REGISTRY ---
+// Pridanie novej odmeny je otázkou jedného riadku sem.
+export const ASSET_STORE: VisualAsset[] = [
+    { 
+        id: 'hat_level_2', 
+        name: 'Šiltovka Ambície', 
+        category: 'headwear', 
+        requirementLevel: 2, 
+        icon: '🧢',
+        promptModifier: 'wearing a cool blue baseball cap'
+    },
+    { 
+        id: 'glasses_level_3', 
+        name: 'Focus Okuliare', 
+        category: 'accessory', 
+        requirementLevel: 3, 
+        icon: '👓',
+        promptModifier: 'wearing smart reading glasses'
+    },
+    { 
+        id: 'headphones_level_4', 
+        name: 'Deep Work Headset', 
+        category: 'accessory', 
+        requirementLevel: 4, 
+        icon: '🎧',
+        promptModifier: 'wearing high-tech noise-canceling headphones'
+    },
+    { 
+        id: 'aura_level_5', 
+        name: 'Zlatá Aura', 
+        category: 'effect', 
+        requirementLevel: 5, 
+        icon: '✨',
+        className: 'animate-pulse bg-yellow-400/20 blur-xl',
+        promptModifier: 'surrounded by a glowing mystical golden aura'
+    }
+];
+
 export const LEVELING_SYSTEM = {
     config: {
       maxHabitsPerDay: 10,
-      maxBlocksPerDay: 12
+      maxBlocksPerDay: 12,
     },
     xpValues: {
       PLAN_DAY: 50,
@@ -15,10 +65,7 @@ export const LEVELING_SYSTEM = {
       COMPLETE_HABIT: 15,
       TRACK_REALITY: 5,
       PERFECT_DAY_BONUS: 100,
-      STREAK_3_DAYS: 150,
-      STREAK_7_DAYS: 500
     },
-    // Titles based on level ranges
     titles: [
       { upTo: 3, title: "Novice Twin" },
       { upTo: 6, title: "Beginner Twin" },
@@ -29,140 +76,68 @@ export const LEVELING_SYSTEM = {
     ]
 };
 
-/**
- * Calculates current level data based on total XP.
- * Formula for XP gap between levels: 500 + (level-1) * 250
- */
 export const calculateLevelData = (totalXp: number) => {
     let level = 1;
     let accumulatedXp = 0;
     
     while (true) {
         const xpForNext = 500 + (level - 1) * 250;
-        if (totalXp < accumulatedXp + xpForNext) {
-            break;
-        }
+        if (totalXp < accumulatedXp + xpForNext) break;
         accumulatedXp += xpForNext;
         level++;
     }
 
     const xpForThisLevel = 500 + (level - 1) * 250;
     const currentLevelXp = totalXp - accumulatedXp;
-    const progressPercent = (currentLevelXp / xpForThisLevel) * 100;
-    const xpRemaining = xpForThisLevel - currentLevelXp;
-    const levelTitle = LEVELING_SYSTEM.titles.find(t => level <= t.upTo)?.title || "Legendary Twin";
-
+    
     return {
         level,
-        title: levelTitle,
+        title: LEVELING_SYSTEM.titles.find(t => level <= t.upTo)?.title || "Legendary Twin",
         currentLevelXp,
         nextLevelXpThreshold: xpForThisLevel,
-        totalXpRequiredForNext: accumulatedXp + xpForThisLevel,
-        xpRemaining,
-        progressPercent
+        progressPercent: (currentLevelXp / xpForThisLevel) * 100,
+        unlockedAssets: ASSET_STORE.filter(a => level >= a.requirementLevel)
     };
 };
 
-/**
- * Backward compatibility or simplified wrapper
- */
-export const getLevelInfo = (xp: number) => {
-    const data = calculateLevelData(xp);
+export const getLevelInfo = (totalXp: number) => {
+    const data = calculateLevelData(totalXp);
+    // Find what was newly unlocked at this level to provide as feedback in the planner
+    const newUnlocks = ASSET_STORE.filter(a => a.requirementLevel === data.level);
     return {
-        ...data,
-        minXp: xp - data.currentLevelXp,
-        maxXp: data.totalXpRequiredForNext,
-        nextLevelXp: data.totalXpRequiredForNext,
-        unlock: null,
-        xpInLevel: data.currentLevelXp,
-        nextLevelNeededGap: data.nextLevelXpThreshold
+        level: data.level,
+        title: data.title,
+        nextLevelXp: data.nextLevelXpThreshold,
+        // Added unlock property to fix TypeScript error in Planner.tsx
+        unlock: newUnlocks.length > 0 ? newUnlocks.map(a => a.name).join(", ") : undefined
     };
 };
 
-/**
- * ADAPTIVE BODY MODEL
- */
+export const getAvatarState = (level: number, taskProgress: number, readiness: number = 70, isSick: boolean = false) => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    let expression: AvatarExpression = 'happy';
+    if (currentHour >= 23 || currentHour < 6) expression = 'sleeping';
+    else if (isSick) expression = 'sad';
+    else if (taskProgress < 20 && currentHour > 14) expression = 'sad';
+    else if (readiness < 40) expression = 'sleepy';
+
+    return { 
+        expression, 
+        isNight: currentHour >= 20 || currentHour < 6,
+        scale: 1 + (level - 1) * 0.05 // Twin rastie s levelom
+    };
+};
+
 export const calculateReadiness = (health?: AggregatedHealthData, context?: DailyContext): number => {
-    let score = 70; // Base score
-
+    let score = 70;
     if (health) {
-        const sleepBonus = (health.sleepMinutes / 480) * 15;
-        score += (sleepBonus - 15);
-        if (health.avgHRV > 60) score += 10;
-        else if (health.avgHRV < 35) score -= 20;
-        if (health.avgHR < 60) score += 5;
-        else if (health.avgHR > 85) score -= 15;
+        score += ((health.sleepMinutes / 480) * 15) - 15;
     }
-
     if (context) {
         score -= (context.stressLevel * 25);
         if (context.isIll) score -= 45;
     }
-
     return Math.min(100, Math.max(0, score));
-};
-
-/**
- * Predicts trends
- */
-export const predictTrends = (currentReadiness: number, last3DaysReadiness: number[]) => {
-    const avg = last3DaysReadiness.length > 0 
-        ? last3DaysReadiness.reduce((a, b) => a + b, 0) / last3DaysReadiness.length 
-        : currentReadiness;
-    
-    const delta = currentReadiness - avg;
-    
-    return {
-        expectedFatigue: delta < -5 ? 'Rising' : (delta > 5 ? 'Low' : 'Stable'),
-        performancePotential: currentReadiness > 75 ? 'High' : (currentReadiness < 40 ? 'Low' : 'Moderate'),
-        recommendation: currentReadiness < 50 ? 'Rest day' : (currentReadiness > 85 ? 'Intense training' : 'Standard routine')
-    };
-};
-
-// --- AVATAR LOGIC (Energy & Mood Simulation) ---
-export const getAvatarState = (level: number, taskProgress: number, readiness: number = 70, isSick: boolean = false) => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    
-    const baseScale = 0.5;
-    const scale = baseScale + (level - 1) * 0.05;
-  
-    let simulatedEnergy = 0;
-    
-    if (currentHour >= 6 && currentHour < 23) {
-        const hoursAwake = (currentHour - 6) + (currentMinute / 60);
-        const depletionRate = (100 / 17) * (1.3 - (readiness / 100)); 
-        simulatedEnergy = Math.max(0, 100 - (hoursAwake * depletionRate));
-    } else {
-        simulatedEnergy = 0; 
-    }
-
-    const displayEnergy = Math.round(simulatedEnergy);
-
-    let expression: AvatarExpression = 'happy';
-    let isNight = currentHour >= 20 || currentHour < 6;
-
-    if (currentHour >= 23 || currentHour < 6) {
-        expression = 'sleeping';
-    } 
-    else if (isSick) {
-        expression = 'sad';
-    }
-    else if (currentHour >= 14 && (taskProgress < 20 || readiness < 35)) {
-        expression = 'sad';
-    }
-    else if (currentHour >= 21 || displayEnergy < 35) {
-        expression = 'sleepy';
-    }
-    else {
-        expression = 'happy';
-    }
-  
-    return { 
-        scale, 
-        expression, 
-        displayEnergy, 
-        isNight
-    };
 };

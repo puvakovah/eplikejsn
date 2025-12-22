@@ -1,75 +1,45 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { 
     SearchResult, AvatarExpression, 
     AvatarGender, AvatarSkin, AvatarHairColor, AvatarHairStyle, 
     AvatarEyeColor, AvatarGlasses, AvatarHeadwear, AvatarTopType, 
     AvatarClothingColor, AvatarBottomType, AvatarShoesType 
 } from "./types";
+import { ASSET_STORE } from "./gamificationConfig";
 
-// --- GENERATIVE BUILDER (Pollinations AI) ---
+// World-class AI client initialization
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
 export const getPresetAvatarUrl = (
-    gender: AvatarGender, 
-    skin: AvatarSkin, 
-    
-    hairStyle: AvatarHairStyle,
-    hairColor: AvatarHairColor,
-    eyeColor: AvatarEyeColor,
-    glasses: AvatarGlasses,
-    headwear: AvatarHeadwear,
-    
-    topType: AvatarTopType,
-    topColor: AvatarClothingColor,
-    bottomType: AvatarBottomType,
-    bottomColor: AvatarClothingColor,
-    shoesType: AvatarShoesType,
-    shoesColor: AvatarClothingColor,
-
-    expression: AvatarExpression = 'happy', 
-    fallbackToDefault: boolean = false
+    gender: AvatarGender, skin: AvatarSkin, 
+    hairStyle: AvatarHairStyle, hairColor: AvatarHairColor, eyeColor: AvatarEyeColor,
+    glasses: AvatarGlasses, headwear: AvatarHeadwear,
+    topType: AvatarTopType, topColor: AvatarClothingColor,
+    bottomType: AvatarBottomType, bottomColor: AvatarClothingColor,
+    shoesType: AvatarShoesType, shoesColor: AvatarClothingColor,
+    expression: AvatarExpression = 'happy',
+    activeAssetIds: string[] = [] // Nový parameter pre odomknuté veci
 ): string => {
   
-  // 1. Construct Physical Description
   const genderDesc = gender === 'Male' ? "handsome man" : "beautiful woman";
   const hairDesc = hairStyle === 'Bald' ? "bald head" : `${hairStyle} ${hairColor} hair`;
+  const outfitDesc = `wearing a ${topColor} ${topType}, ${bottomColor} ${bottomType}, and ${shoesColor} ${shoesType}`;
   
-  // 2. Construct Outfit Description
-  const topDesc = `${topColor} ${topType}`;
-  const bottomDesc = `${bottomColor} ${bottomType}`;
-  const shoesDesc = `${shoesColor} ${shoesType}`;
-  const outfitDesc = `wearing a ${topDesc}, ${bottomDesc}, and ${shoesDesc}`;
-  
-  // 3. Accessories
-  let accessoriesDesc = "";
-  if (glasses !== 'None') accessoriesDesc += `wearing ${glasses}, `;
-  if (headwear !== 'None') accessoriesDesc += `wearing a ${headwear}, `;
+  // Dynamické pridanie odomknutých assetov do promptu
+  const assetModifiers = ASSET_STORE
+    .filter(a => activeAssetIds.includes(a.id))
+    .map(a => a.promptModifier)
+    .join(", ");
 
-  // 4. Expression Logic
   let exprPrompt = "happy face, confident smile, looking at camera";
-  switch (expression) {
-      case 'sad': 
-          exprPrompt = "sad face, disappointed expression, looking slightly down, frowning, low energy posture"; 
-          break;
-      case 'sleepy': 
-          exprPrompt = "very tired face, sleepy eyes, yawning, bags under eyes, exhausted posture"; 
-          break;
-      case 'sleeping': 
-          exprPrompt = "sleeping, eyes closed, peaceful dreaming expression, resting head, laying down"; 
-          break;
-      case 'happy': 
-      default: 
-          exprPrompt = "happy face, confident smile, energetic, upright posture, looking at camera"; 
-          break;
-  }
+  if (expression === 'sad') exprPrompt = "sad face, disappointed expression, looking down";
+  if (expression === 'sleepy') exprPrompt = "tired face, sleepy eyes, yawning";
+  if (expression === 'sleeping') exprPrompt = "sleeping peacefully, eyes closed";
 
-  // 5. Construct Prompt
-  const prompt = `3D render of a ${genderDesc} with ${hairDesc} and ${eyeColor} eyes, ${outfitDesc}, ${accessoriesDesc} ${exprPrompt}, ${skin} skin tone, white background, soft lighting, Pixar Disney style, high quality 8k, adult proportions, full body shot, visible legs and shoes, standing pose`;
+  const prompt = `3D render of a ${genderDesc} with ${hairDesc} and ${eyeColor} eyes, ${outfitDesc}, ${assetModifiers ? assetModifiers + ',' : ''} ${exprPrompt}, ${skin} skin tone, white background, soft lighting, Pixar Disney style, high quality 8k, full body shot, standing pose`;
 
-  // 6. Deterministic Seed (Identity Lock)
-  // CRITICAL CHANGE: Excluded 'expression' from the seed string.
-  // This ensures the "base character" (face, body type) stays exactly the same,
-  // while the prompt changes the mood/pose.
-  const uniqueString = `${gender}-${skin}-${hairStyle}-${hairColor}-${eyeColor}-${glasses}-${headwear}-${topType}-${topColor}-${bottomType}-${bottomColor}-${shoesType}-${shoesColor}`;
+  const uniqueString = `${gender}-${skin}-${hairStyle}-${hairColor}-${eyeColor}-${glasses}-${headwear}-${topType}-${topColor}-${bottomType}-${bottomColor}-${shoesType}-${shoesColor}-${activeAssetIds.sort().join('')}`;
   
   let seed = 0;
   for (let i = 0; i < uniqueString.length; i++) {
@@ -80,104 +50,114 @@ export const getPresetAvatarUrl = (
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${seed}&width=256&height=512&model=flux`; 
 };
 
+// --- Missing Gemini AI Services Implementation ---
 
-const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackValue: T): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => {
-        console.warn(`Operation timed out after ${ms}ms. Using fallback.`);
-        resolve(fallbackValue);
-    }, ms))
-  ]);
-};
-
-// FIX: Initialize GoogleGenAI strictly using process.env.API_KEY as per the library guidelines
-const getAiClient = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
-};
-
-const FALLBACK_PLAN = {
-  blocks: [
-    { title: "Ranná rutina & Hydratácia", startTime: "07:00", endTime: "07:30", type: "habit", reason: "Štart dňa pre metabolizmus" },
-    { title: "Hlboká práca (Deep Work)", startTime: "09:00", endTime: "11:00", type: "work", reason: "Najvyššia kognitívna kapacita ráno" },
-    { title: "Zdravý obed & Prechádzka", startTime: "12:00", endTime: "13:00", type: "health", reason: "Doplnenie energie a pohyb" },
-    { title: "Kreatívny blok / Učenie", startTime: "14:00", endTime: "15:30", type: "work", reason: "Rozvoj nových zručností" },
-    { title: "Digitálny detox & Relax", startTime: "20:00", endTime: "21:00", type: "rest", reason: "Príprava na kvalitný spánok" }
-  ]
-};
-
-export const generateIdealDayPlan = async (
-  goals: string[],
-  preferences: string
-): Promise<any> => {
-  const ai = getAiClient();
-  
-  const prompt = `
-    Create an optimized daily schedule (JSON) for a user with these goals: ${goals.join(", ")}.
-    Preferences: ${preferences}.
-    JSON format with "blocks" array. Each block: title, startTime, endTime, type, reason.
-  `;
-
-  try {
-    // FIX: Using gemini-3-flash-preview for text generation tasks
-    const response = await withTimeout(
-        ai.models.generateContent({
-            model: "gemini-3-flash-preview", 
-            contents: prompt,
-            config: { responseMimeType: "application/json" },
-        }),
-        8000, 
-        null 
-    );
-
-    if (!response) throw new Error("Timeout");
-    // FIX: Use .text property directly
-    let text = response.text || "{}";
-    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(text);
-    if (!parsed.blocks) throw new Error("Invalid format");
-    return parsed;
-
-  } catch (error) {
-    console.warn("AI Plan Generation Failed:", error);
-    return FALLBACK_PLAN;
-  }
-};
-
-export const getHabitSuggestions = async (goal: string): Promise<{ text: string; sources: SearchResult[] }> => {
-  const ai = getAiClient();
-  const fallback = { text: "Tip: Pite viac vody and hýbte sa. (Offline režim)", sources: [] };
-  
-  try {
-    // FIX: Using gemini-3-flash-preview with googleSearch tool
-    const response = await withTimeout(
-        ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: `Suggest 3 scientifically proven habits to help achieve: "${goal}".`,
-            config: { tools: [{ googleSearch: {} }] },
-        }),
-        8000,
-        null
-    );
-    if (!response) return fallback;
-    // FIX: Use .text property directly
-    const text = response.text || "Žiadne návrhy.";
-    const sources: SearchResult[] = [];
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    if (chunks) {
-      chunks.forEach((chunk: any) => {
-        if (chunk.web?.uri) {
-          sources.push({ title: chunk.web.title || "Zdroj", uri: chunk.web.uri });
+/**
+ * Generates an ideal daily plan using Gemini 3 Flash.
+ */
+export const generateIdealDayPlan = async (goals: string[], preferences: string) => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Navrhni ideálny denný plán založený na cieľoch: ${goals.join(', ')}. Preferencie užívateľa: ${preferences}. Odpovedaj v slovenčine.`,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    blocks: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                startTime: { type: Type.STRING, description: "Formát HH:mm" },
+                                endTime: { type: Type.STRING, description: "Formát HH:mm" },
+                                type: { type: Type.STRING, description: "work|rest|habit|exercise|social|health|other" },
+                                reason: { type: Type.STRING, description: "Stručné vysvetlenie prečo je tento blok v pláne" }
+                            },
+                            required: ["title", "startTime", "endTime", "type"]
+                        }
+                    }
+                },
+                required: ["blocks"]
+            }
         }
-      });
-    }
-    return { text, sources };
-  } catch (error) {
-    return fallback;
-  }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("AI returned empty plan");
+    return JSON.parse(text);
 };
 
-export const generateMotivationVideo = async (prompt: string, imageBase64: string | null): Promise<string | null> => {
-  const fallbackVideo = "https://cdn.pixabay.com/video/2023/10/22/186175-877660724_large.mp4";
-  return fallbackVideo;
+/**
+ * Fetches habit suggestions using Google Search grounding.
+ */
+export const getHabitSuggestions = async (query: string) => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Aké sú najlepšie návyky pre: ${query}? Odpovedaj v slovenčine.`,
+        config: {
+            tools: [{ googleSearch: {} }]
+        }
+    });
+
+    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
+        title: chunk.web?.title || 'Webový zdroj',
+        uri: chunk.web?.uri || ''
+    })).filter((s: any) => s.uri) || [];
+
+    return {
+        text: response.text || "Nepodarilo sa vygenerovať odporúčania.",
+        sources
+    };
+};
+
+/**
+ * Generates a motivational video using Veo 3.1.
+ */
+export const generateMotivationVideo = async (prompt: string, imageUri: string | null) => {
+    // Check for API key selection as per guidelines for Veo models
+    if (typeof window !== 'undefined' && window.aistudio && !(await window.aistudio.hasSelectedApiKey())) {
+        await window.aistudio.openSelectKey();
+    }
+
+    const videoAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const request: any = {
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: prompt || 'A cinematic visualization of personal growth and achievement',
+        config: {
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: '16:9'
+        }
+    };
+
+    if (imageUri) {
+        try {
+            const imgResp = await fetch(imageUri);
+            const blob = await imgResp.blob();
+            const base64Data = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                reader.readAsDataURL(blob);
+            });
+            request.image = {
+                imageBytes: base64Data,
+                mimeType: blob.type || 'image/png'
+            };
+        } catch (e) {
+            console.error("Failed to load reference image for video", e);
+        }
+    }
+
+    let operation = await videoAi.models.generateVideos(request);
+    
+    while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        operation = await videoAi.operations.getVideosOperation({ operation });
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    return `${downloadLink}&key=${process.env.API_KEY}`;
 };

@@ -179,6 +179,7 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
     setIsImageLoading(true);
     setImageFailed(false);
     
+    // Fixed: Passing empty array instead of boolean for activeAssetIds
     const url = getPresetAvatarUrl(
         gender, skin, 
         hairStyle, hairColor, eyeColor, 
@@ -186,7 +187,7 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
         topType, topColor, 
         bottomType, bottomColor, 
         shoesType, shoesColor,
-        'happy', false
+        'happy', []
     );
     
     setPreviewUrl(url);
