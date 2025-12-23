@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI as GoogleGenAI, SchemaType as Type } from "@google/generative-ai";
 import { 
     SearchResult, AvatarExpression, 
     AvatarGender, AvatarSkin, AvatarHairColor, AvatarHairStyle, 
