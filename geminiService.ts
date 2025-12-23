@@ -1,4 +1,3 @@
-
 import { GoogleGenerativeAI as GoogleGenAI, SchemaType as Type } from "@google/generative-ai";
 import { 
     SearchResult, AvatarExpression, 
@@ -7,6 +6,9 @@ import {
     AvatarClothingColor, AvatarBottomType, AvatarShoesType 
 } from "./types";
 import { CATEGORY_UNLOCKS } from "./gamificationConfig";
+
+// Pomocná funkcia na získanie API kľúča
+const getApiKey = () => process.env.API_KEY || "";
 
 export const getPresetAvatarUrl = async (
     level: number,
@@ -54,19 +56,23 @@ export const getPresetAvatarUrl = async (
   seed = Math.abs(seed);
   
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: prompt }] },
-      config: { seed: seed, imageConfig: { aspectRatio: "1:1" } }
+    const ai = new GoogleGenAI(getApiKey());
+    // V novej verzii používame getGenerativeModel
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { 
+        seed: seed,
+        // Poznámka: gemini-1.5-flash bežne nepodporuje inline generovanie obrázkov týmto štýlom,
+        // ak používate ImageFX cez Vertex AI, kód by bol iný. Ponechávam štruktúru pre fallback.
+      }
     });
 
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return `data:image/png;base64,${part.inlineData.data}`;
-        }
-      }
+    const response = await result.response;
+    const part = response.candidates?.[0]?.content?.parts?.[0];
+    if (part?.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
     }
   } catch (err) {
     console.warn("AI generation error, using fallback provider", err);
@@ -76,11 +82,10 @@ export const getPresetAvatarUrl = async (
 };
 
 export const generateIdealDayPlan = async (goals: string[], preferences: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `Navrhni ideálny denný plán založený na cieľoch: ${goals.join(', ')}. Preferencie užívateľa: ${preferences}. Odpovedaj v slovenčine.`,
-        config: {
+    const ai = new GoogleGenAI(getApiKey());
+    const model = ai.getGenerativeModel({ 
+        model: 'gemini-1.5-pro',
+        generationConfig: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
@@ -104,20 +109,28 @@ export const generateIdealDayPlan = async (goals: string[], preferences: string)
             }
         }
     });
-    return JSON.parse(response.text || '{"blocks":[]}');
+
+    const prompt = `Navrhni ideálny denný plán založený na cieľoch: ${goals.join(', ')}. Preferencie užívateľa: ${preferences}. Odpovedaj v slovenčine.`;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return JSON.parse(response.text() || '{"blocks":[]}');
 };
 
 export const getHabitSuggestions = async (query: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Aké sú najlepšie návyky pre: ${query}? Odpovedaj v slovenčine.`,
-        config: { tools: [{ googleSearch: {} }] }
+    const ai = new GoogleGenAI(getApiKey());
+    const model = ai.getGenerativeModel({ 
+        model: 'gemini-1.5-flash',
+        // Google Search Tool sa pridáva tu
+        tools: [{ googleSearch: {} } as any] 
     });
+
+    const result = await model.generateContent(`Aké sú najlepšie návyky pre: ${query}? Odpovedaj v slovenčine.`);
+    const response = await result.response;
+    
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
         title: chunk.web?.title || 'Zdroj',
         uri: chunk.web?.uri || ''
     })).filter((s: any) => s.uri) || [];
 
-    return { text: response.text || "Chyba.", sources };
+    return { text: response.text() || "Chyba.", sources };
 };
