@@ -11,9 +11,9 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "@google/generative-ai": "^0.21.0",
     "lucide-react": "^0.454.0",
     "framer-motion": "^11.11.11",
-    "@google/generative-ai": "^0.21.0",
     "@supabase/supabase-js": "^2.46.1",
     "@capacitor/core": "^6.1.2",
     "@capacitor/android": "^6.1.2",
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^6.1.2",
+    "@vitejs/plugin-react": "^4.3.3",
     "typescript": "^5.6.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
