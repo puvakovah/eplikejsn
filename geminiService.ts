@@ -6,9 +6,7 @@ import {
 } from "./types";
 import { CATEGORY_UNLOCKS } from "./gamificationConfig";
 
-// OPRAVA: Prístup k premenným prostredia vo Vite (import.meta.env)
-// Pridaný "Optional chaining" a fallback, aby nevznikol TypeError
-const API_KEY = import.meta.env?.VITE_GEMINI_API_KEY || "";
+const API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 export const getPresetAvatarUrl = async (
