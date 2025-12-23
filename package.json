@@ -2,12 +2,19 @@
   "name": "ideal-twin",
   "version": "1.0.0",
   "description": "Tvoj ideálny deň, tvoj virtuálny dvojník.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
   "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "lucide-react": "^0.554.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "lucide-react": "^0.446.0",
     "framer-motion": "^11.13.1",
-    "@google/genai": "^1.30.0",
+    "@google/generative-ai": "^0.21.0",
     "@supabase/supabase-js": "^2.45.0",
     "@capacitor/core": "^6.0.0",
     "@capacitor/android": "^6.0.0",
@@ -15,6 +22,10 @@
     "@capacitor/push-notifications": "^6.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.0.0"
+    "@capacitor/cli": "^6.0.0",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8"
   }
 }
