@@ -19,38 +19,33 @@ const Avatar: React.FC<AvatarProps> = ({ user, expression, size = 'md' }) => {
   const state = getAvatarState(energy);
   const finalExpression = expression || state.expression;
 
-  // Logika rastu avatara
-  let ageType = 'adult'; // Default
-  let avatarParams = '';
+  // Evolučná logika vizuálnych parametrov Dicebear
+  let evolutionParams = '';
 
-  if (currentLevel <= 5) {
-    ageType = 'toddler';
-    avatarParams = '&top[]=shortHair&mouth[]=smile&eyebrows[]=raised';
-  } else if (currentLevel <= 10) {
-    ageType = 'child';
-    avatarParams = '&top[]=bob&mouth[]=smile&eyebrows[]=default';
+  if (currentLevel < 10) {
+    evolutionParams = '&top[]=bob&mouth[]=smile&eyebrows[]=default';
+  } else if (currentLevel < 20) {
+    evolutionParams = '&top[]=shortHair&mouth[]=smile&clothing[]=hoodie';
   } else {
-    ageType = 'adult';
-    avatarParams = '&top[]=longHair&mouth[]=smile&eyebrows[]=default';
+    evolutionParams = '&top[]=longHair&mouth[]=smile&clothing[]=blazer&accessories[]=shades';
   }
 
-  // Ak je nastavené pohlavie v configu
   const genderSeed = user.avatarConfig?.gender === 'Female' ? 'Maria' : 'Jack';
-  const diceBearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name || genderSeed}${avatarParams}`;
+  const diceBearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name || genderSeed}${evolutionParams}`;
 
   const containerSizes = {
     sm: 'w-16 h-16', md: 'w-32 h-32', lg: 'w-48 h-48', xl: 'w-64 h-64'
   };
 
   const containerClass = `relative ${containerSizes[size]} flex items-center justify-center`;
-  const energyFilters = energy < 30 ? 'saturate(0.5) brightness(0.9)' : '';
+  const energyFilters = energy < 30 ? 'grayscale(0.3) brightness(0.9)' : '';
 
   return (
     <motion.div 
       className={containerClass}
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ 
-        scale: 1 + (currentLevel * 0.01), // Mierny rast veľkosti s levelom
+        scale: 1 + (currentLevel * 0.005), // Decentný vizuálny rast
         opacity: state.opacity 
       }}
       transition={{ type: 'spring', stiffness: 120 }}
@@ -65,14 +60,9 @@ const Avatar: React.FC<AvatarProps> = ({ user, expression, size = 'md' }) => {
       >
         <img 
           src={user.avatarUrl && typeof user.avatarUrl === 'string' ? user.avatarUrl : diceBearUrl} 
-          className="w-full h-full object-contain" 
+          className="w-full h-full object-contain drop-shadow-2xl" 
           alt="Twin Avatar"
         />
-        
-        {/* Indikátor vekovej kategórie (Debug/Vizuálny prvok) */}
-        <div className="absolute -bottom-2 bg-primary/10 text-[8px] px-2 py-0.5 rounded-full font-black uppercase text-primary/60 dark:bg-white/5">
-            {ageType} Twin
-        </div>
       </motion.div>
 
       {/* Sleep indicators */}

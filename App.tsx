@@ -7,21 +7,21 @@ import Planner from './Planner';
 import Habits from './Habits';
 import TwinProfile from './TwinProfile';
 import Inbox from './Inbox';
-// Corrected lowercase import
 import Settings from './settings';
 import Auth from './Auth';
 import { db } from './db';
 import { LayoutDashboard, Calendar, ListChecks, UserCircle, LogOut, Loader2, Mail, Settings as SettingsIcon, CloudOff, Cloud } from 'lucide-react';
+import { translations, Language } from './translations';
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('ideal_twin_auth') === 'true');
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(localStorage.getItem('ideal_twin_username'));
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   
-  const [lang, setLang] = useState<'sk' | 'en'>(() => {
-    return (localStorage.getItem('ideal_twin_lang') as 'sk' | 'en') || 'sk';
+  const [lang, setLang] = useState<Language>(() => {
+    return (localStorage.getItem('ideal_twin_lang') as Language) || 'sk';
   });
 
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -30,6 +30,8 @@ const App: React.FC = () => {
   
   const [isSyncing, setIsSyncing] = useState(false);
   const [toasts, setToasts] = useState<{id: number, msg: string, type: 'xp' | 'lvl'}[]>([]);
+
+  const t = (key: string) => translations[lang][key as keyof typeof translations.en] || key;
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -60,25 +62,50 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      const res = await db.getSession();
-      if (res.success && res.data) {
-        setCurrentUsername(res.username!);
-        setUser(res.data.user);
-        setHabits(res.data.habits || []);
-        setDayPlan(res.data.dayPlan);
-        setIsAuthenticated(true);
-        
-        // Initial theme logic
-        const prefs = res.data.user.preferences;
-        if (prefs?.theme) {
-            const isDark = prefs.theme === 'dark' || (prefs.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            document.documentElement.classList.toggle('dark', isDark);
+      try {
+        const res = await db.getSession();
+        if (res.success && res.data) {
+          const username = res.username || localStorage.getItem('ideal_twin_username');
+          setCurrentUsername(username);
+          setUser(res.data.user);
+          setHabits(res.data.habits || []);
+          setDayPlan(res.data.dayPlan);
+          setIsAuthenticated(true);
+          
+          const prefs = res.data.user.preferences;
+          const savedTheme = localStorage.getItem('ideal_twin_theme') || prefs?.theme || 'light';
+          document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+        } else if (!isAuthenticated) {
+            // Ak nemáme session a nie sme lokálne auth, ideme na login
+            setIsAuthenticated(false);
         }
+      } catch (err) {
+        console.error("Session initialization failed", err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     init();
   }, []);
+
+  const handleLogin = (username: string, data: any) => {
+    setCurrentUsername(username);
+    setUser(data.user);
+    setHabits(data.habits || []);
+    setDayPlan(data.dayPlan);
+    setIsAuthenticated(true);
+    
+    // Perzistencia
+    localStorage.setItem('ideal_twin_username', username);
+    localStorage.setItem('ideal_twin_auth', 'true');
+  };
+
+  const handleLogout = async () => {
+    await db.logout();
+    localStorage.removeItem('ideal_twin_username');
+    localStorage.removeItem('ideal_twin_auth');
+    window.location.reload();
+  };
 
   if (isLoading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-canvas dark:bg-dark-canvas text-primary">
@@ -86,12 +113,7 @@ const App: React.FC = () => {
     </div>
   );
 
-  if (!isAuthenticated) return <Auth onLogin={(u, d) => { setCurrentUsername(u); setUser(d.user); setHabits(d.habits); setDayPlan(d.dayPlan); setIsAuthenticated(true); }} />;
-
-  const navLabels = {
-    sk: { dash: 'Dashboard', plan: 'Plánovač', habits: 'Návyky', inbox: 'Inbox', profile: 'Profil', settings: 'Nastavenia', logout: 'Odhlásiť' },
-    en: { dash: 'Dashboard', plan: 'Planner', habits: 'Habits', inbox: 'Inbox', profile: 'Profile', settings: 'Settings', logout: 'Logout' }
-  }[lang];
+  if (!isAuthenticated) return <Auth onLogin={handleLogin} />;
 
   return (
     <div className="min-h-screen bg-canvas text-txt dark:bg-dark-canvas dark:text-white flex flex-col md:flex-row transition-colors duration-300">
@@ -121,19 +143,19 @@ const App: React.FC = () => {
           </div>
           
           <nav className="space-y-2 flex-1">
-            <NavItem active={currentView === AppView.DASHBOARD} icon={<LayoutDashboard size={20}/>} label={navLabels.dash} onClick={() => setCurrentView(AppView.DASHBOARD)} />
-            <NavItem active={currentView === AppView.PLANNER} icon={<Calendar size={20}/>} label={navLabels.plan} onClick={() => setCurrentView(AppView.PLANNER)} />
-            <NavItem active={currentView === AppView.HABITS} icon={<ListChecks size={20}/>} label={navLabels.habits} onClick={() => setCurrentView(AppView.HABITS)} />
-            <NavItem active={currentView === AppView.INBOX} icon={<Mail size={20}/>} label={navLabels.inbox} onClick={() => setCurrentView(AppView.INBOX)} />
-            <NavItem active={currentView === AppView.PROFILE} icon={<UserCircle size={20}/>} label={navLabels.profile} onClick={() => setCurrentView(AppView.PROFILE)} />
-            <NavItem active={currentView === AppView.SETTINGS} icon={<SettingsIcon size={20}/>} label={navLabels.settings} onClick={() => setCurrentView(AppView.SETTINGS)} />
+            <NavItem active={currentView === AppView.DASHBOARD} icon={<LayoutDashboard size={20}/>} label={t('nav.dashboard')} onClick={() => setCurrentView(AppView.DASHBOARD)} />
+            <NavItem active={currentView === AppView.PLANNER} icon={<Calendar size={20}/>} label={t('nav.planner')} onClick={() => setCurrentView(AppView.PLANNER)} />
+            <NavItem active={currentView === AppView.HABITS} icon={<ListChecks size={20}/>} label={t('nav.habits')} onClick={() => setCurrentView(AppView.HABITS)} />
+            <NavItem active={currentView === AppView.INBOX} icon={<Mail size={20}/>} label={t('nav.inbox')} onClick={() => setCurrentView(AppView.INBOX)} />
+            <NavItem active={currentView === AppView.PROFILE} icon={<UserCircle size={20}/>} label={t('nav.profile')} onClick={() => setCurrentView(AppView.PROFILE)} />
+            <NavItem active={currentView === AppView.SETTINGS} icon={<SettingsIcon size={20}/>} label={t('nav.settings')} onClick={() => setCurrentView(AppView.SETTINGS)} />
           </nav>
 
           <button 
-            onClick={() => db.logout().then(() => window.location.reload())}
+            onClick={handleLogout}
             className="flex items-center gap-3 p-4 rounded-2xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all font-bold"
           >
-            <LogOut size={20} /> {navLabels.logout}
+            <LogOut size={20} /> {t('nav.logout')}
           </button>
       </aside>
 
@@ -142,7 +164,7 @@ const App: React.FC = () => {
         <AnimatePresence mode="wait">
           <motion.div key={currentView} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
             {currentView === AppView.DASHBOARD && <Dashboard user={user!} setUser={setUser} plan={dayPlan!} onNavigate={setCurrentView} isOnline={isOnline} lang={lang} />}
-            {currentView === AppView.HABITS && <Habits habits={habits} setHabits={setHabits} user={user!} setUser={setUser} addToast={addToast} />}
+            {currentView === AppView.HABITS && <Habits habits={habits} setHabits={setHabits} user={user!} setUser={setUser} addToast={addToast} lang={lang} />}
             {currentView === AppView.PLANNER && <Planner plan={dayPlan!} setPlan={setDayPlan} user={user!} setUser={setUser} userGoals={user!.goals} userPreferences={JSON.stringify(user!.preferences)} isOnline={isOnline} lang={lang} />}
             {currentView === AppView.PROFILE && <TwinProfile user={user!} setUser={setUser} lang={lang} />}
             {currentView === AppView.INBOX && <Inbox user={user!} setUser={setUser} lang={lang} />}
@@ -150,7 +172,7 @@ const App: React.FC = () => {
               <Settings 
                 user={user!} 
                 setUser={setUser} 
-                onLogout={() => db.logout().then(() => window.location.reload())} 
+                onLogout={handleLogout} 
                 onSync={handleSync}
                 isSyncing={isSyncing}
                 lang={lang}

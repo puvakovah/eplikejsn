@@ -1,5 +1,4 @@
 
-
 export type AvatarExpression = 'happy' | 'sad' | 'sleepy' | 'sleeping';
 export type AvatarGender = 'Male' | 'Female';
 export type AvatarSkin = 'Fair' | 'Light' | 'Medium' | 'Olive' | 'Brown' | 'Dark';
@@ -42,9 +41,9 @@ export interface HealthSyncConfig {
 }
 
 export interface UserPreferences {
-  // Fix: Added 'system' to allow the app to follow OS-level light/dark mode settings
   theme: 'light' | 'dark' | 'system';
   language: 'sk' | 'en';
+  notificationsEnabled: boolean; // Globálny prepínač
   notificationsEmail: boolean;
   notificationsPush: boolean;
   bio?: string;
@@ -71,7 +70,7 @@ export interface AggregatedHealthData {
 export interface DailyContext {
   stressLevel: number;
   isIll: boolean;
-  cycleDay?: number; // 1-31 (pre ženy)
+  cycleDay?: number;
 }
 
 export type ActivityType = 'work' | 'rest' | 'habit' | 'exercise' | 'social' | 'health' | 'other';
@@ -121,8 +120,10 @@ export interface UserProfile {
   firstName?: string;
   lastName?: string;
   dateOfBirth?: string;
-  // Fix: added address property to match usage in settings.tsx
-  address?: string;
+  address?: string; // Legacy poľa, nahradené štruktúrovanou adresou
+  streetAddress?: string;
+  city?: string;
+  country?: string;
   goals: string[]; 
   
   preferences: UserPreferences; 
@@ -130,19 +131,16 @@ export interface UserProfile {
   avatarUrl: string | null; 
   avatarConfig?: AvatarConfig; 
   
-  // Gamification Stats
   twinLevel: number; 
   levelTitle?: string; 
   xp: number; 
   xpToNextLevel: number; 
   energy: number; 
   
-  // Health Status
   isSick: boolean;
   isHealthSynced: boolean;
-  stressLevel: number; // 0 - 10
+  stressLevel: number;
 
-  // Anti-Cheat & Daily Tracking
   lastActivityDate: string; 
   dailyHabitCount: number; 
   dailyBlockCount: number; 
@@ -150,7 +148,6 @@ export interface UserProfile {
   
   messages: InboxMessage[];
 
-  // Extended Health & Context
-  healthData: Record<string, AggregatedHealthData>; // Keyed by YYYY-MM-DD
-  dailyContext: Record<string, DailyContext>; // Keyed by YYYY-MM-DD
+  healthData: Record<string, AggregatedHealthData>;
+  dailyContext: Record<string, DailyContext>;
 }

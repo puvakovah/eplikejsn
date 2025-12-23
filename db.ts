@@ -1,4 +1,3 @@
-
 import { UserProfile, Habit, DayPlan } from './types';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
@@ -37,10 +36,8 @@ const Cache = {
 export const db = {
   isOnline: () => window.navigator.onLine,
 
-  // Added missing method for Auth component to detect provider capabilities
   getProviderType: () => 'supabase',
 
-  // Added missing method for Auth component to resend verification emails
   resendVerificationEmail: async (email: string) => {
     if (!supabase) return { success: false, message: 'Offline' };
     try {
@@ -64,15 +61,18 @@ export const db = {
       return { success: true, username, data: cached.data };
     }
     
-    // Ak je cache stará a sme online, skúsime fetch zo Supabase
     if (supabase && navigator.onLine) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            const { data } = await supabase.from('profiles').select('data').eq('id', session.user.id).single();
-            if (data) {
-                Cache.set(username, data.data);
-                return { success: true, username, data: data.data };
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { data } = await supabase.from('profiles').select('data').eq('id', session.user.id).single();
+                if (data) {
+                    Cache.set(username, data.data);
+                    return { success: true, username, data: data.data };
+                }
             }
+        } catch (e) {
+            console.warn("Supabase session fetch failed, falling back to cache.");
         }
     }
 
@@ -146,21 +146,31 @@ export const db = {
   },
 
   saveUserData: async (username: string, data: any) => {
+    // 1. Lokálne uloženie pre okamžitú odozvu
     Cache.set(username, data);
+
+    // 2. Kontrola pripojenia a inicializácie
     if (!supabase || !navigator.onLine) return { success: true };
 
     try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            await supabase.from('profiles').upsert({ 
-                id: session.user.id, 
-                data, 
-                username, 
-                updated_at: new Date().toISOString() 
-            }, { onConflict: 'id' });
-        }
+        if (!session) return { success: false, message: "No active session" };
+
+        // Synchronizácia do Supabase - OPRAVENÁ DESTRUKTURALIZÁCIA ERROR
+        const { error } = await supabase.from('profiles').upsert({ 
+            id: session.user.id, 
+            data, 
+            username, 
+            updated_at: new Date().toISOString() 
+        }, { onConflict: 'id' });
+
+        if (error) throw error;
+        
         return { success: true };
-    } catch (err: any) { return { success: false, message: err.message }; }
+    } catch (err: any) { 
+        console.error("Sync error:", err.message);
+        return { success: false, message: err.message }; 
+    }
   },
 
   logout: async () => {
