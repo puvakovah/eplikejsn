@@ -1,14 +1,24 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import { GoogleGenAI, Type } from "@google/genai";
 import { 
-    AvatarExpression, AvatarGender, AvatarSkin, AvatarHairColor, 
-    AvatarHairStyle, AvatarEyeColor, AvatarGlasses, AvatarHeadwear, 
-    AvatarTopType, AvatarClothingColor, AvatarBottomType, AvatarShoesType 
+    SearchResult, AvatarExpression, 
+    AvatarGender, AvatarSkin, AvatarHairColor, AvatarHairStyle, 
+    AvatarEyeColor, AvatarGlasses, AvatarHeadwear, AvatarTopType, 
+    AvatarClothingColor, AvatarBottomType, AvatarShoesType 
 } from "./types";
 import { CATEGORY_UNLOCKS } from "./gamificationConfig";
 
-const API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const ensureApiKey = () => {
+  if (!process.env.API_KEY) {
+    console.error("Gemini API Key is missing.");
+    return false;
+  }
+  return true;
+};
 
+/**
+ * Získanie URL avatara z Gemini. Pri chybe vracia signál pre použitie základného avatara.
+ */
 export const getPresetAvatarUrl = async (
     level: number,
     gender: AvatarGender, 
@@ -25,69 +35,80 @@ export const getPresetAvatarUrl = async (
     shoesType: AvatarShoesType, 
     shoesColor: AvatarClothingColor,
     expression: AvatarExpression = 'happy'
-): Promise<string> => {
+): Promise<string | { useBaseAvatar: boolean }> => {
   
   const genderDesc = gender === 'Male' ? "handsome man" : "beautiful woman";
-  const hairDesc = (level >= CATEGORY_UNLOCKS.CLOTHING && hairStyle !== 'Bald') ? `${hairStyle} ${hairColor} hair` : "short basic hair";
-  const clothingDesc = level >= CATEGORY_UNLOCKS.CLOTHING ? `wearing ${topColor} ${topType} and ${bottomColor} ${bottomType}` : "wearing simple clothes";
-  const shoesDesc = level >= CATEGORY_UNLOCKS.SHOES ? `with ${shoesColor} ${shoesType}` : "standing barefoot";
-  const glassesDesc = (level >= CATEGORY_UNLOCKS.GLASSES && glasses !== 'None') ? `wearing ${glasses} glasses` : "";
-  const headDesc = (level >= CATEGORY_UNLOCKS.HEADWEAR && headwear !== 'None') ? `wearing a ${headwear}` : "";
+  const prompt = `3D digital render of a ${genderDesc} character with ${skin} skin, Pixar animation style, full body shot, centered on pure white background, 8k resolution. Expression: ${expression}.`;
 
-  let exprPrompt = "happy smile";
-  if (expression === 'sad') exprPrompt = "unhappy face";
-  if (expression === 'sleepy') exprPrompt = "tired eyes";
-  if (expression === 'sleeping') exprPrompt = "eyes closed";
+  if (ensureApiKey()) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: { parts: [{ text: prompt }] },
+        config: { imageConfig: { aspectRatio: "1:1" } }
+      });
 
-  const prompt = `3D render, ${genderDesc}, ${skin} skin, ${hairDesc}, ${clothingDesc}, ${shoesDesc}, ${glassesDesc}, ${headDesc}, ${exprPrompt}, Pixar style, white background.`;
-
-  const uniqueString = `${level}-${gender}-${skin}-${hairStyle}-${hairColor}-${eyeColor}-${glasses}-${headwear}-${topType}-${topColor}-${bottomType}-${bottomColor}-${shoesType}-${shoesColor}-${expression}`;
-  let seed = 0;
-  for (let i = 0; i < uniqueString.length; i++) {
-    seed = (uniqueString.charCodeAt(i) + ((seed << 5) - seed));
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            return `data:image/png;base64,${part.inlineData.data}`;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn("Gemini generation failed, signaling fallback. Reason:", err?.message);
+    }
   }
-  seed = Math.abs(seed);
-  
-  // Keďže Gemini priamo v SDK generovanie obrázkov nepodporuje rovnako ako text,
-  // zachovávame tvoj Pollinations fallback ako primárny zdroj.
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${seed}&width=512&height=512&model=flux`; 
+
+  return { useBaseAvatar: true };
 };
 
+/**
+ * Generovanie plánu dňa. Oprava chyby 400 odstránením responseMimeType ak zlyháva.
+ */
 export const generateIdealDayPlan = async (goals: string[], preferences: string) => {
+    if (!ensureApiKey()) return { blocks: [] };
+
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: `Navrhni plán pre: ${goals.join(', ')}. Preferencie: ${preferences}. Odpovedaj v JSON: {"blocks": [{"title": "string", "startTime": "HH:MM", "endTime": "HH:MM", "type": "string"}]}` }] }],
-            // OPRAVA: 'seed' tu neexistuje v typoch, ak ho chceš poslať, musíš pretypovať na any
-            generationConfig: { responseMimeType: "application/json" } as any
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-preview',
+            contents: `Navrhni ideálny denný plán založený na cieľoch: ${goals.join(', ')}. Preferencie: ${preferences}. Odpovedaj výhradne v JSON formáte so štruktúrou { "blocks": [ { "title": string, "startTime": "HH:MM", "endTime": "HH:MM", "type": string } ] }.`,
+            config: {
+                // Odstránené explicitné application/json pre zvýšenie kompatibility pri chybách 400
+                temperature: 0.7,
+            }
         });
-        return JSON.parse(result.response.text());
+        
+        const text = response.text || '{"blocks":[]}';
+        // Manuálne vyčistenie JSONu z markdownu ak je prítomný
+        const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanJson);
     } catch (e) {
-        console.error(e);
+        console.error("Day plan generation failed:", e);
         return { blocks: [] };
     }
 };
 
 export const getHabitSuggestions = async (query: string) => {
-    try {
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            tools: [{ googleSearchRetrieval: {} }] as any
-        });
-        const result = await model.generateContent(`Návyky pre: ${query}`);
-        const response = result.response;
-        
-        // OPRAVA: Log ti písal preklep 'groundingChuncks' - vyriešime to cez any
-        const metadata = (response as any).candidates?.[0]?.groundingMetadata;
-        const chunks = metadata?.groundingChunks || metadata?.groundingChuncks || [];
+    if (!ensureApiKey()) return { text: "AI kľúč chýba.", sources: [] };
 
-        const sources = chunks.map((chunk: any) => ({
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: `Navrhni návyky pre: ${query}.`,
+            config: { tools: [{ googleSearch: {} }] }
+        });
+        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
             title: chunk.web?.title || 'Zdroj',
             uri: chunk.web?.uri || ''
         })).filter((s: any) => s.uri) || [];
 
-        return { text: response.text(), sources };
+        return { text: response.text || "Žiadna odpoveď.", sources };
     } catch (e) {
-        return { text: "Chyba.", sources: [] };
+        console.error("Habit suggestions failed:", e);
+        return { text: "AI služba je nedostupná.", sources: [] };
     }
 };
