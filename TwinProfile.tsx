@@ -35,7 +35,7 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
     setIsGenerating(true);
     setIsImageLoading(true); 
     try {
-        const aiUrl = await getPresetAvatarUrl(
+        const result = await getPresetAvatarUrl(
             level,
             localConfig.gender,
             localConfig.skin,
@@ -51,7 +51,10 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
             localConfig.shoesType,
             localConfig.shoesColor
         );
-        setUser({ ...user, avatarUrl: aiUrl, avatarConfig: localConfig });
+        // Fix: getPresetAvatarUrl can return an object { useBaseAvatar: boolean } which is not compatible with avatarUrl: string | null.
+        // We verify the type of result before updating the user profile.
+        const avatarUrl = typeof result === 'string' ? result : null;
+        setUser({ ...user, avatarUrl: avatarUrl, avatarConfig: localConfig });
     } catch (e) {
         console.error("AI Generation failed", e);
         setIsImageLoading(false);

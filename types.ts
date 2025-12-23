@@ -121,6 +121,8 @@ export interface UserProfile {
   firstName?: string;
   lastName?: string;
   dateOfBirth?: string;
+  // Fix: added address property to match usage in settings.tsx
+  address?: string;
   goals: string[]; 
   
   preferences: UserPreferences; 

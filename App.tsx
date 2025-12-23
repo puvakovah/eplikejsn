@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppView, DayPlan, UserProfile, Habit } from './types';
@@ -127,6 +128,13 @@ const App: React.FC = () => {
             <NavItem active={currentView === AppView.PROFILE} icon={<UserCircle size={20}/>} label={navLabels.profile} onClick={() => setCurrentView(AppView.PROFILE)} />
             <NavItem active={currentView === AppView.SETTINGS} icon={<SettingsIcon size={20}/>} label={navLabels.settings} onClick={() => setCurrentView(AppView.SETTINGS)} />
           </nav>
+
+          <button 
+            onClick={() => db.logout().then(() => window.location.reload())}
+            className="flex items-center gap-3 p-4 rounded-2xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all font-bold"
+          >
+            <LogOut size={20} /> {navLabels.logout}
+          </button>
       </aside>
 
       {/* Main Content */}

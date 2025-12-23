@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { UserProfile, AvatarExpression } from './types';
@@ -11,61 +12,79 @@ interface AvatarProps {
 
 const Avatar: React.FC<AvatarProps> = ({ user, expression, size = 'md' }) => {
   const levelData = calculateLevelData(user.xp);
+  const currentLevel = levelData.level;
+  
   const today = new Date().toISOString().split('T')[0];
   const energy = calculateEnergy(user.healthData?.[today], user.dailyContext?.[today] || { stressLevel: 0.2, isIll: user.isSick });
-  
   const state = getAvatarState(energy);
   const finalExpression = expression || state.expression;
+
+  // Logika rastu avatara
+  let ageType = 'adult'; // Default
+  let avatarParams = '';
+
+  if (currentLevel <= 5) {
+    ageType = 'toddler';
+    avatarParams = '&top[]=shortHair&mouth[]=smile&eyebrows[]=raised';
+  } else if (currentLevel <= 10) {
+    ageType = 'child';
+    avatarParams = '&top[]=bob&mouth[]=smile&eyebrows[]=default';
+  } else {
+    ageType = 'adult';
+    avatarParams = '&top[]=longHair&mouth[]=smile&eyebrows[]=default';
+  }
+
+  // Ak je nastavené pohlavie v configu
+  const genderSeed = user.avatarConfig?.gender === 'Female' ? 'Maria' : 'Jack';
+  const diceBearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name || genderSeed}${avatarParams}`;
 
   const containerSizes = {
     sm: 'w-16 h-16', md: 'w-32 h-32', lg: 'w-48 h-48', xl: 'w-64 h-64'
   };
 
-  // Avatar filtre pri nízkej energii
-  const energyFilters = energy < 30 ? 'saturate(0.4) brightness(0.9) contrast(1.1)' : '';
+  const containerClass = `relative ${containerSizes[size]} flex items-center justify-center`;
+  const energyFilters = energy < 30 ? 'saturate(0.5) brightness(0.9)' : '';
 
   return (
     <motion.div 
-      className={`relative ${containerSizes[size]} flex items-center justify-center`}
-      initial={{ scale: 0.9, opacity: 0 }}
+      className={containerClass}
+      initial={{ scale: 0.8, opacity: 0 }}
       animate={{ 
-        scale: 1 + (levelData.level - 1) * 0.02, 
+        scale: 1 + (currentLevel * 0.01), // Mierny rast veľkosti s levelom
         opacity: state.opacity 
       }}
-      transition={{ type: 'spring', stiffness: 100 }}
+      transition={{ type: 'spring', stiffness: 120 }}
     >
       <motion.div 
         className="relative z-10 w-full h-full flex items-center justify-center"
         style={{ filter: energyFilters }}
         animate={{
-            scale: state.glow ? [1, 1.05, 1] : [1, 1.02, 1],
-            rotate: energy < 30 ? [0, -1, 1, 0] : [0, 0]
+            y: state.glow ? [0, -5, 0] : [0, 0]
         }}
-        transition={{ 
-            repeat: Infinity, 
-            duration: 4 / state.animationSpeed,
-            ease: "easeInOut"
-        }}
+        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
       >
         <img 
-          src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`} 
+          src={user.avatarUrl && typeof user.avatarUrl === 'string' ? user.avatarUrl : diceBearUrl} 
           className="w-full h-full object-contain" 
           alt="Twin Avatar"
         />
+        
+        {/* Indikátor vekovej kategórie (Debug/Vizuálny prvok) */}
+        <div className="absolute -bottom-2 bg-primary/10 text-[8px] px-2 py-0.5 rounded-full font-black uppercase text-primary/60 dark:bg-white/5">
+            {ageType} Twin
+        </div>
       </motion.div>
 
+      {/* Sleep indicators */}
       <div className="absolute inset-0 z-30 pointer-events-none">
         {finalExpression === 'sleeping' && (
           <motion.div 
-            animate={{ y: [-10, -40], opacity: [0, 1, 0] }} 
-            transition={{ repeat: Infinity, duration: 3 }} 
-            className="absolute top-0 right-4 text-primary font-black text-2xl select-none"
+            animate={{ y: [-10, -30], opacity: [0, 1, 0], x: [0, 10, 0] }} 
+            transition={{ repeat: Infinity, duration: 4 }} 
+            className="absolute top-2 right-4 text-primary font-black text-xl select-none"
           >
             Zzz
           </motion.div>
-        )}
-        {finalExpression === 'sleepy' && (
-          <div className="absolute top-0 right-0 text-xl animate-pulse select-none">🥱</div>
         )}
       </div>
     </motion.div>
