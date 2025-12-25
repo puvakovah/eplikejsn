@@ -1,88 +1,148 @@
-
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { 
-    AvatarExpression, AvatarGender, AvatarSkin, AvatarHairColor, 
-    AvatarHairStyle, AvatarEyeColor, AvatarGlasses, AvatarHeadwear, 
-    AvatarTopType, AvatarClothingColor, AvatarBottomType, AvatarShoesType 
+    UserProfile, AvatarConfig, AvatarExpression
 } from "./types";
-import { CATEGORY_UNLOCKS } from "./gamificationConfig";
 
-// Inicializácia Gemini API podľa prísnych pravidiel (výhradne cez process.env.API_KEY)
-const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
-
-export const getPresetAvatarUrl = async (
-    level: number,
-    gender: AvatarGender, 
-    skin: AvatarSkin, 
-    hairStyle: AvatarHairStyle, 
-    hairColor: AvatarHairColor, 
-    eyeColor: AvatarEyeColor,
-    glasses: AvatarGlasses, 
-    headwear: AvatarHeadwear,
-    topType: AvatarTopType, 
-    topColor: AvatarClothingColor,
-    bottomType: AvatarBottomType, 
-    bottomColor: AvatarClothingColor,
-    shoesType: AvatarShoesType, 
-    shoesColor: AvatarClothingColor,
-    expression: AvatarExpression = 'happy'
-): Promise<string> => {
-  
-  // Evolučná logika podľa levelu
-  let ageStage = "child";
-  if (level >= 20) ageStage = "adult";
-  else if (level >= 10) ageStage = "teenager";
-
-  const genderDesc = gender === 'Male' ? `${ageStage} male` : `${ageStage} female`;
-  const hairDesc = (level >= CATEGORY_UNLOCKS.CLOTHING && hairStyle !== 'Bald') ? `${hairStyle} ${hairColor} hair` : "simple hair";
-  const clothingDesc = level >= CATEGORY_UNLOCKS.CLOTHING ? `wearing ${topColor} ${topType} and ${bottomColor} ${bottomType}` : "simple casual clothes";
-  const shoesDesc = level >= CATEGORY_UNLOCKS.SHOES ? `with ${shoesColor} ${shoesType}` : "barefoot";
-  
-  const prompt = `3D digital character render, ${genderDesc}, ${skin} skin, ${hairDesc}, ${clothingDesc}, ${shoesDesc}, Pixar/Disney style, 8k, detailed textures, white background.`;
-
-  const uniqueString = `${level}-${gender}-${skin}-${hairStyle}-${hairColor}-${eyeColor}-${expression}`;
-  let seed = 0;
-  for (let i = 0; i < uniqueString.length; i++) {
-    seed = (uniqueString.charCodeAt(i) + ((seed << 5) - seed));
+/**
+ * Generuje unikátny seed na základe konfigurácie avatara.
+ * Zabezpečuje, že rovnaké nastavenia vracajú vizuálne identický výsledok (vizuálna perzistencia).
+ */
+const getDeterministicSeed = (config: AvatarConfig, level: number): number => {
+  const seedString = `${config.gender}-${config.skin}-${config.hairStyle}-${config.hairColor}-${config.eyeColor}-${config.topType}-${config.topColor}-${config.bottomType}-${config.bottomColor}-${config.shoesType}-${config.shoesColor}-${level}`;
+  let hash = 0;
+  for (let i = 0; i < seedString.length; i++) {
+    const char = seedString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; 
   }
-  seed = Math.abs(seed);
-  
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${seed}&width=512&height=512&model=flux`; 
+  return Math.abs(hash);
 };
 
-export const generateIdealDayPlan = async (goals: string[], preferences: string) => {
-    if (!process.env.API_KEY) return { blocks: [] };
+/**
+ * Generátor avatara v Pixar/Disney 3D štýle s využitím gemini-2.5-flash-image.
+ */
+export const getPresetAvatarUrl = async (
+    user: UserProfile,
+    expression: AvatarExpression = 'happy'
+): Promise<string> => {
+  const config = user.avatarConfig;
+  if (!config) return "";
 
+  const seedValue = getDeterministicSeed(config, user.twinLevel);
+
+  // Evolúcia podľa levelu
+  let ageStage = "child";
+  if (user.twinLevel >= 20) ageStage = "sophisticated adult";
+  else if (user.twinLevel >= 10) ageStage = "cool teenager";
+
+  // Rozšírená logika šatníka
+  let topDesc = `a ${config.topColor} ${config.topType.toLowerCase()}`;
+  if (config.topType === 'Shirt') {
+    topDesc = `an elegant ${config.topColor} button-up shirt with a crisp formal collar`;
+  }
+
+  let bottomDesc = `a pair of ${config.bottomColor} ${config.bottomType.toLowerCase()}`;
+  if (config.bottomType === 'Skirt') {
+    bottomDesc = `a stylish ${config.bottomColor} skirt`;
+  } else if (config.bottomType === 'Leggings') {
+    bottomDesc = `tight athletic ${config.bottomColor} performance leggings`;
+  }
+
+  // Logika účesov
+  let hairDesc = `${config.hairColor} ${config.hairStyle.toLowerCase()} hair`;
+  if (config.hairStyle === 'Bald') hairDesc = "a completely smooth bald head, no hair";
+  else if (config.hairStyle === 'Spiky') hairDesc = `modern spiky ${config.hairColor} styled hair`;
+  else if (config.hairStyle === 'Ponytail') hairDesc = `${config.hairColor} hair tied back in a neat ponytail`;
+
+  const prompt = `Full body 3D render in Pixar and Disney animation style of a ${ageStage} ${config.gender.toLowerCase()}. 
+    Skin: ${config.skin.toLowerCase()} tone. 
+    Eyes: ${config.eyeColor.toLowerCase()}, showing a ${expression} expression.
+    Hair: ${hairDesc}.
+    Clothing: ${topDesc} paired with ${bottomDesc}.
+    Shoes: ${config.shoesColor.toLowerCase()} ${config.shoesType.toLowerCase()}.
+    Technical: cinematic lighting, 8k resolution, highly detailed textures, solid neutral background, centered character.`;
+
+  try {
+    // Inicializácia podľa systémových požiadaviek (process.env.API_KEY je definovaný vo vite.config.ts)
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts: [{ text: prompt }] },
+      config: {
+        seed: seedValue,
+        imageConfig: { aspectRatio: "1:1" }
+      },
+    });
+
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+  } catch (e) {
+    console.error("Gemini Image Generation failed, using Pollinations fallback.", e);
+  }
+
+  // Fallback na Pollinations s identickým seedovaním pre zachovanie perzistencie
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${seedValue}&width=1024&height=1024&model=flux`; 
+};
+
+/**
+ * Generuje ideálny denný plán.
+ */
+export const generateIdealDayPlan = async (goals: string[], preferences: string) => {
     try {
-        const ai = getAi();
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: `Navrhni ideálny denný plán pre užívateľa s cieľmi: ${goals.join(', ')}. Preferencie: ${preferences}. Odpovedaj výhradne v čistom JSON formáte: {"blocks": [{"title": "Názov", "startTime": "HH:MM", "endTime": "HH:MM", "type": "work|rest|habit|exercise"}]}`
+            contents: `Navrhni ideálny denný plán pre užívateľa s cieľmi: ${goals.join(', ')}. Preferencie: ${preferences}. Odpovedaj v slovenskom jazyku.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        blocks: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    title: { type: Type.STRING },
+                                    startTime: { type: Type.STRING, description: "Formát HH:MM" },
+                                    endTime: { type: Type.STRING, description: "Formát HH:MM" },
+                                    type: { type: Type.STRING, description: "Typ aktivity (work, rest, habit, exercise, health)" },
+                                    reason: { type: Type.STRING, description: "Prečo je táto aktivita dôležitá pre ciele užívateľa" }
+                                },
+                                required: ["title", "startTime", "endTime", "type"]
+                            }
+                        }
+                    },
+                    required: ["blocks"]
+                }
+            }
         });
         
-        const text = response.text || "{}";
-        const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanJson);
+        // Vďaka responseMimeType JSON nemusíme čistiť markdown
+        return JSON.parse(response.text || '{"blocks": []}');
     } catch (e) {
         console.error("AI Plan Generation failed:", e);
         return { blocks: [] };
     }
 };
 
+/**
+ * Získava vedecky podložené návyky s využitím Google Search.
+ */
 export const getHabitSuggestions = async (query: string) => {
-    if (!process.env.API_KEY) return { text: "Chýba API kľúč.", sources: [] };
-
     try {
-        const ai = getAi();
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({ 
             model: "gemini-3-flash-preview",
-            contents: `Navrhni vedecky podložené návyky pre zlepšenie v oblasti: ${query}. Použi Google Search pre overenie faktov.`,
+            contents: `Navrhni vedecky podložené návyky pre: ${query}. Zameraj sa na praktické kroky. Odpovedaj slovensky.`,
             config: { 
                 tools: [{ googleSearch: {} }] 
             }
         });
 
-        // Extrakcia URL zo search grounding podľa pravidiel
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
             title: chunk.web?.title || 'Zdroj',
             uri: chunk.web?.uri || ''
@@ -90,7 +150,7 @@ export const getHabitSuggestions = async (query: string) => {
 
         return { text: response.text || "", sources };
     } catch (e) {
-        console.error("AI Habit suggestions failed:", e);
-        return { text: "Nepodarilo sa získať nápady.", sources: [] };
+        console.error("Habit search failed:", e);
+        return { text: "Nepodarilo sa získať nápady. Skúste to neskôr.", sources: [] };
     }
 };

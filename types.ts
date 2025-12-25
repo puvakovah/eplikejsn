@@ -3,7 +3,7 @@ export type AvatarExpression = 'happy' | 'sad' | 'sleepy' | 'sleeping';
 export type AvatarGender = 'Male' | 'Female';
 export type AvatarSkin = 'Fair' | 'Light' | 'Medium' | 'Olive' | 'Brown' | 'Dark';
 export type AvatarHairColor = 'Blonde' | 'Brown' | 'Black' | 'Red' | 'Gray';
-export type AvatarHairStyle = 'Short' | 'Long' | 'Curly' | 'Bald';
+export type AvatarHairStyle = 'Short' | 'Long' | 'Straight' | 'Curly' | 'Spiky' | 'Bob' | 'Ponytail' | 'Wavy' | 'Bald';
 export type AvatarEyeColor = 'Brown' | 'Blue' | 'Green';
 export type AvatarGlasses = 'None' | 'Reading' | 'Sunglasses';
 export type AvatarHeadwear = 'None' | 'Hat' | 'Cap' | 'Beanie';
@@ -11,6 +11,7 @@ export type AvatarTopType = 'T-Shirt' | 'Hoodie' | 'Shirt' | 'Jacket' | 'TankTop
 export type AvatarBottomType = 'Jeans' | 'Sweatpants' | 'Shorts' | 'Skirt' | 'Leggings';
 export type AvatarShoesType = 'Sneakers' | 'Boots' | 'Sandals' | 'Heels';
 export type AvatarClothingColor = 'Red' | 'Blue' | 'Black' | 'Green' | 'White' | 'Gray' | 'Denim' | 'Pink' | 'Yellow';
+
 
 export interface AvatarConfig {
   gender: AvatarGender;
@@ -43,7 +44,7 @@ export interface HealthSyncConfig {
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
   language: 'sk' | 'en';
-  notificationsEnabled: boolean; // Globálny prepínač
+  notificationsEnabled: boolean;
   notificationsEmail: boolean;
   notificationsPush: boolean;
   bio?: string;
@@ -120,7 +121,7 @@ export interface UserProfile {
   firstName?: string;
   lastName?: string;
   dateOfBirth?: string;
-  address?: string; // Legacy poľa, nahradené štruktúrovanou adresou
+  address?: string;
   streetAddress?: string;
   city?: string;
   country?: string;

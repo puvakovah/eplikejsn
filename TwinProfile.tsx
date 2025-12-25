@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { UserProfile, AvatarConfig, AvatarSkin, AvatarHairColor, AvatarBottomType, AvatarClothingColor, AvatarTopType, AvatarShoesType, AvatarGlasses, AvatarHeadwear } from './types';
+import { UserProfile, AvatarConfig, AvatarSkin, AvatarHairColor, AvatarHairStyle, AvatarBottomType, AvatarClothingColor, AvatarTopType, AvatarShoesType, AvatarGlasses, AvatarHeadwear } from './types';
 import { CATEGORY_UNLOCKS } from './gamificationConfig';
 import { getPresetAvatarUrl } from './geminiService';
-import { Lock, User, Shirt, Smile, Save, Sparkles, Loader2, Footprints, Glasses, GraduationCap } from 'lucide-react';
+import { Lock, User, Shirt, Smile, Save, Sparkles, Loader2, Footprints, Glasses, GraduationCap, Scissors, Palette } from 'lucide-react';
 import { translations, Language } from './translations';
 import Avatar from './Avatar';
 
@@ -13,7 +13,7 @@ interface TwinProfileProps {
 }
 
 const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' }) => {
-  const t = (key: string) => translations[lang][key] || key;
+  const t = (key: string) => translations[lang][key as keyof typeof translations.en] || key;
   const level = user.twinLevel;
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -35,25 +35,9 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
     setIsGenerating(true);
     setIsImageLoading(true); 
     try {
-        const result = await getPresetAvatarUrl(
-            level,
-            localConfig.gender,
-            localConfig.skin,
-            localConfig.hairStyle,
-            localConfig.hairColor,
-            localConfig.eyeColor,
-            localConfig.glasses,
-            localConfig.headwear,
-            localConfig.topType,
-            localConfig.topColor,
-            localConfig.bottomType,
-            localConfig.bottomColor,
-            localConfig.shoesType,
-            localConfig.shoesColor
-        );
-        // Fix: getPresetAvatarUrl can return an object { useBaseAvatar: boolean } which is not compatible with avatarUrl: string | null.
-        // We verify the type of result before updating the user profile.
-        const avatarUrl = typeof result === 'string' ? result : null;
+        // Construct temporary user object for prediction
+        const tempUser = { ...user, avatarConfig: localConfig };
+        const avatarUrl = await getPresetAvatarUrl(tempUser);
         setUser({ ...user, avatarUrl: avatarUrl, avatarConfig: localConfig });
     } catch (e) {
         console.error("AI Generation failed", e);
@@ -75,7 +59,7 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
         </h3>
         {isLocked(req) && (
             <span className="flex items-center gap-1 text-[10px] bg-red-50 text-red-500 px-2 py-0.5 rounded-full font-bold dark:bg-red-900/20">
-                <Lock size={10} /> Odomkne sa na Lvl {req}
+                <Lock size={10} /> Lvl {req}
             </span>
         )}
     </div>
@@ -90,21 +74,13 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
          {showLoader && (
              <div className="absolute inset-0 z-50 bg-surface/90 dark:bg-dark-surface/90 flex flex-col items-center justify-center rounded-[3rem] text-center p-6 backdrop-blur-sm">
                  <Loader2 size={48} className="text-primary animate-spin mb-4" />
-                 <h4 className="font-black uppercase tracking-tighter text-txt dark:text-white">Generujem Twin Dvojníka</h4>
-                 <p className="text-sm text-txt-muted mt-2 font-bold">To môže chvíľu trvať... Prosím počkaj.</p>
+                 <h4 className="font-black uppercase tracking-tighter text-txt dark:text-white">Formujem identitu</h4>
+                 <p className="text-sm text-txt-muted mt-2 font-bold">Váš 3D Twin ožíva...</p>
              </div>
          )}
          
          <div className={isImageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-1000'}>
              <Avatar user={{ ...user, avatarConfig: localConfig }} size="xl" />
-             {user.avatarUrl && (
-                 <img 
-                    src={user.avatarUrl} 
-                    className="hidden" 
-                    onLoad={() => setIsImageLoading(false)} 
-                    onError={() => setIsImageLoading(false)}
-                 />
-             )}
          </div>
          
          <div className="mt-10 flex gap-4 w-full justify-center">
@@ -140,49 +116,91 @@ const TwinProfile: React.FC<TwinProfileProps> = ({ user, setUser, lang = 'sk' })
               </div>
           </section>
 
+          <section className="bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm">
+              <SectionHeader icon={Scissors} title="Vlasy a Strih" req={CATEGORY_UNLOCKS.BASIC} />
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                  <select value={localConfig.hairStyle} onChange={(e) => updateConfig('hairStyle', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none">
+                      <option value="Short">Krátke</option>
+                      <option value="Long">Dlhé</option>
+                      <option value="Straight">Rovné</option>
+                      <option value="Curly">Kučeravé</option>
+                      <option value="Spiky">Spiky (Pichľavé)</option>
+                      <option value="Bob">Bob (Krátky strih)</option>
+                      <option value="Ponytail">Cop</option>
+                      <option value="Wavy">Vlnité</option>
+                      <option value="Bald">Bald (Bez vlasov)</option>
+                  </select>
+                  <select value={localConfig.hairColor} onChange={(e) => updateConfig('hairColor', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none">
+                      <option value="Brown">Hnedé</option>
+                      <option value="Blonde">Blond</option>
+                      <option value="Black">Čierne</option>
+                      <option value="Red">Ryšavé</option>
+                      <option value="Gray">Sivé</option>
+                  </select>
+              </div>
+          </section>
+
           <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.CLOTHING) ? 'opacity-50 pointer-events-none' : ''}`}>
-              <SectionHeader icon={Shirt} title="Oblečenie" req={CATEGORY_UNLOCKS.CLOTHING} />
-              <div className="grid grid-cols-2 gap-3">
+              <SectionHeader icon={Shirt} title="Vrchný diel" req={CATEGORY_UNLOCKS.CLOTHING} />
+              <div className="grid grid-cols-2 gap-3 mb-4">
                   <select disabled={isLocked(2)} value={localConfig.topType} onChange={(e) => updateConfig('topType', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none">
                       <option value="T-Shirt">Tričko</option>
                       <option value="Hoodie">Mikina</option>
-                      <option value="Shirt">Košeľa</option>
+                      <option value="Shirt">Košeľa (Elegantná)</option>
                       <option value="Jacket">Bunda</option>
                   </select>
+                  <select disabled={isLocked(2)} value={localConfig.topColor} onChange={(e) => updateConfig('topColor', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none">
+                      {['White', 'Black', 'Blue', 'Red', 'Green', 'Gray', 'Pink', 'Yellow'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+              </div>
+          </section>
+
+          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.CLOTHING) ? 'opacity-50 pointer-events-none' : ''}`}>
+              <SectionHeader icon={Palette} title="Spodný diel" req={CATEGORY_UNLOCKS.CLOTHING} />
+              <div className="grid grid-cols-2 gap-3">
                   <select disabled={isLocked(2)} value={localConfig.bottomType} onChange={(e) => updateConfig('bottomType', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none">
                       <option value="Jeans">Džínsy</option>
                       <option value="Sweatpants">Tepláky</option>
                       <option value="Shorts">Šortky</option>
+                      <option value="Skirt">Sukňa</option>
+                      <option value="Leggings">Legíny</option>
+                  </select>
+                  <select disabled={isLocked(2)} value={localConfig.bottomColor} onChange={(e) => updateConfig('bottomColor', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none">
+                      {['Denim', 'Black', 'Gray', 'Blue', 'White', 'Black'].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
               </div>
           </section>
 
           <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.SHOES) ? 'opacity-50 pointer-events-none' : ''}`}>
               <SectionHeader icon={Footprints} title="Obuv" req={CATEGORY_UNLOCKS.SHOES} />
-              <select disabled={isLocked(3)} value={localConfig.shoesType} onChange={(e) => updateConfig('shoesType', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
-                  <option value="Sneakers">Tenisky</option>
-                  <option value="Boots">Topánky</option>
-                  <option value="Sandals">Sandále</option>
-              </select>
+              <div className="grid grid-cols-2 gap-3">
+                <select disabled={isLocked(3)} value={localConfig.shoesType} onChange={(e) => updateConfig('shoesType', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
+                    <option value="Sneakers">Tenisky</option>
+                    <option value="Boots">Topánky</option>
+                    <option value="Sandals">Sandále</option>
+                    <option value="Heels">Lodičky</option>
+                </select>
+                <select disabled={isLocked(3)} value={localConfig.shoesColor} onChange={(e) => updateConfig('shoesColor', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
+                   {['White', 'Black', 'Blue', 'Brown'].map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
           </section>
 
           <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.GLASSES) ? 'opacity-50 pointer-events-none' : ''}`}>
-              <SectionHeader icon={Glasses} title="Okuliare" req={CATEGORY_UNLOCKS.GLASSES} />
-              <select disabled={isLocked(4)} value={localConfig.glasses} onChange={(e) => updateConfig('glasses', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
-                  <option value="None">Bez okuliarov</option>
-                  <option value="Reading">Dioptrické</option>
-                  <option value="Sunglasses">Slnečné</option>
-              </select>
-          </section>
-
-          <section className={`bg-surface p-6 rounded-3xl border border-txt-light/10 dark:bg-dark-surface shadow-sm transition-opacity ${isLocked(CATEGORY_UNLOCKS.HEADWEAR) ? 'opacity-50 pointer-events-none' : ''}`}>
-              <SectionHeader icon={GraduationCap} title="Šiltovky a Doplnky" req={CATEGORY_UNLOCKS.HEADWEAR} />
-              <select disabled={isLocked(5)} value={localConfig.headwear} onChange={(e) => updateConfig('headwear', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
-                  <option value="None">Žiadne</option>
-                  <option value="Cap">Šiltovka</option>
-                  <option value="Hat">Klobúk</option>
-                  <option value="Beanie">Čiapka</option>
-              </select>
+              <SectionHeader icon={Glasses} title="Doplnky" req={CATEGORY_UNLOCKS.GLASSES} />
+              <div className="grid grid-cols-2 gap-3">
+                <select disabled={isLocked(4)} value={localConfig.glasses} onChange={(e) => updateConfig('glasses', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
+                    <option value="None">Bez okuliarov</option>
+                    <option value="Reading">Dioptrické</option>
+                    <option value="Sunglasses">Slnečné</option>
+                </select>
+                <select disabled={isLocked(5)} value={localConfig.headwear} onChange={(e) => updateConfig('headwear', e.target.value)} className="bg-canvas dark:bg-dark-canvas p-3 rounded-xl text-xs font-bold border-none outline-none w-full">
+                    <option value="None">Bez pokrývky</option>
+                    <option value="Cap">Šiltovka</option>
+                    <option value="Hat">Klobúk</option>
+                    <option value="Beanie">Čiapka</option>
+                </select>
+              </div>
           </section>
       </div>
     </div>

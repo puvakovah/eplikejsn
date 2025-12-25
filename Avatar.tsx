@@ -11,6 +11,9 @@ interface AvatarProps {
 }
 
 const Avatar: React.FC<AvatarProps> = ({ user, expression, size = 'md' }) => {
+  // SAFETY GUARD: Ak user nie je inicializovaný, nevykresľujeme nič, aby sme predišli crashu
+  if (!user) return null;
+
   const levelData = calculateLevelData(user.xp);
   const currentLevel = levelData.level;
   

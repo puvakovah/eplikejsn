@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserProfile, UserPreferences } from './types';
@@ -74,7 +75,8 @@ const Settings: React.FC<SettingsProps> = ({ user, setUser, onLogout, lang, setL
       setUser(updatedUser);
 
       // 2. Database/Server Sync (Supabase + Local Cache)
-      const result = await db.saveUserData(user.username || 'user', updatedUser);
+      // Fix: UserProfile interface uses 'name' instead of 'username'
+      const result = await db.saveUserData(user.name || 'user', updatedUser);
       
       if (result.success) {
         setSaveSuccess(true);
@@ -233,7 +235,7 @@ const Settings: React.FC<SettingsProps> = ({ user, setUser, onLogout, lang, setL
                                     <Sun size={32} /> <span className="text-sm font-black uppercase tracking-widest">{t('settings.light')}</span>
                                 </button>
                                 <button onClick={() => handleThemeChange('dark')} className={`p-8 rounded-3xl border-2 flex flex-col items-center gap-4 transition-all ${prefs.theme === 'dark' ? 'border-primary bg-primary/5 text-primary' : 'border-transparent bg-canvas dark:bg-dark-canvas dark:text-white'}`}>
-                                    <Moon size={32} /> <span className="text-sm font-black uppercase tracking-widest">{t('settings.dark')}</span>
+                                    < Moon size={32} /> <span className="text-sm font-black uppercase tracking-widest">{t('settings.dark')}</span>
                                 </button>
                             </div>
                         </motion.section>
