@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserProfile, UserPreferences } from './types';
@@ -29,11 +28,14 @@ const Settings: React.FC<SettingsProps> = ({ user, setUser, onLogout, lang, setL
   const t = (key: string): string => translations[lang][key as keyof typeof translations.en] || key;
 
   // Lokálny stav pre editáciu
-  const [prefs, setPrefs] = useState<UserPreferences>(() => ({
-    ...user.preferences,
-    notificationsEnabled: user.preferences?.notificationsEnabled ?? true,
-    theme: (localStorage.getItem('ideal_twin_theme') as 'light' | 'dark') || user.preferences?.theme || 'light'
-  }));
+  const [prefs, setPrefs] = useState<UserPreferences>(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    return {
+      ...user.preferences,
+      notificationsEnabled: user.preferences?.notificationsEnabled ?? true,
+      theme: savedTheme || user.preferences?.theme || 'light'
+    };
+  });
 
   const [accountData, setAccountData] = useState({
     email: user.email || '',
@@ -47,8 +49,14 @@ const Settings: React.FC<SettingsProps> = ({ user, setUser, onLogout, lang, setL
 
   const handleThemeChange = (newTheme: 'light' | 'dark') => {
     setPrefs(prev => ({ ...prev, theme: newTheme }));
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    localStorage.setItem('ideal_twin_theme', newTheme);
+    
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    localStorage.setItem('theme', newTheme);
   };
 
   const handleLanguageChange = (newLang: Language) => {
@@ -75,7 +83,6 @@ const Settings: React.FC<SettingsProps> = ({ user, setUser, onLogout, lang, setL
       setUser(updatedUser);
 
       // 2. Database/Server Sync (Supabase + Local Cache)
-      // Fix: UserProfile interface uses 'name' instead of 'username'
       const result = await db.saveUserData(user.name || 'user', updatedUser);
       
       if (result.success) {

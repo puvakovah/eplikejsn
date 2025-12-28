@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { Habit, UserProfile, SearchResult, InboxMessage } from './types';
+import { Habit, UserProfile, SearchResult } from './types';
 import { LEVELING_SYSTEM, getLevelInfo } from './gamificationConfig';
 import { getHabitSuggestions } from './geminiService';
-import { Check, Flame, Trash2, Plus, Sparkles, Loader2, Search, X, ExternalLink, Mail, ArrowUpCircle, Save } from 'lucide-react';
+import { Check, Flame, Trash2, Plus, Sparkles, Loader2, Search, X, ExternalLink } from 'lucide-react';
 import { translations, Language } from './translations';
 
 interface HabitsProps {
@@ -22,7 +21,6 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   
-  // AI Search state for grounding features
   const [showAiSearch, setShowAiSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<{ text: string, sources: SearchResult[] } | null>(null);
@@ -56,14 +54,17 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
     if (!habit || habit.completedDates.includes(today)) return;
 
     await triggerHaptic(ImpactStyle.Medium);
-
     const xpGain = LEVELING_SYSTEM.xpValues.COMPLETE_HABIT;
     
-    setHabits(prev => prev.map(h => h.id === id ? { 
+    // 1. Vytvoríme aktualizované pole
+    const updatedHabits = habits.map(h => h.id === id ? { 
         ...h, 
         streak: h.streak + 1, 
         completedDates: [...h.completedDates, today] 
-    } : h));
+    } : h);
+    
+    // 2. Aktualizujeme OBA stavy naraz
+    setHabits(updatedHabits);
     
     const newXp = user.xp + xpGain;
     const info = getLevelInfo(newXp);
@@ -75,7 +76,8 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
         twinLevel: info.level,
         xpToNextLevel: info.nextLevelXp,
         energy: isLevelUp ? 100 : Math.min(100, prev.energy + 5),
-        dailyHabitCount: prev.dailyHabitCount + 1
+        dailyHabitCount: prev.dailyHabitCount + 1,
+        habits: updatedHabits 
     }));
 
     addToast(`+${xpGain} XP`, 'xp');
@@ -100,22 +102,49 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
         category: 'productivity' 
     };
 
-    setHabits(prev => [...prev, newHabit]);
-    addToast(`Návyk pridaný! +${xpReward} XP`);
+    const updatedHabits = [...habits, newHabit];
+    
+    // Aktualizácia oboch stavov
+    setHabits(updatedHabits);
     
     const info = getLevelInfo(user.xp + xpReward);
-    setUser(prev => ({ ...prev, xp: prev.xp + xpReward, twinLevel: info.level, xpToNextLevel: info.nextLevelXp }));
+    setUser(prev => ({ 
+      ...prev, 
+      xp: prev.xp + xpReward, 
+      twinLevel: info.level, 
+      xpToNextLevel: info.nextLevelXp,
+      habits: updatedHabits 
+    }));
     
+    addToast(`Návyk pridaný! +${xpReward} XP`);
     setNewTitle('');
     setIsAdding(false);
   };
 
-  const handleDelete = async (id: string) => {
-      if (confirm("Naozaj vymazať tento návyk?")) {
-          await triggerHaptic(ImpactStyle.Light);
-          setHabits(prev => prev.filter(h => h.id !== id));
-      }
-  };
+  // --- OPRAVENÁ FUNKCIA MAZANIA ---
+ const handleDelete = async (e: React.MouseEvent, id: string) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (window.confirm(t('habits.delete_confirm'))) {
+    // Haptika (ak ju používaš)
+    await Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
+
+    // 1. Vytvoríme nové pole bez vymazaného ID
+    const updatedHabits = habits.filter(h => h.id !== id);
+    
+    // 2. Voláme setHabits, ktorý v App.tsx okamžite zmení celý objekt user
+    setHabits([...updatedHabits]);
+    
+    // 3. Voliteľné: Ak chceš mať 100% istotu, zavolaj setUser priamo tu
+    setUser(prev => ({
+      ...prev,
+      habits: [...updatedHabits]
+    }));
+
+    addToast(t('habits.deleted_msg'));
+  }
+};
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-10">
@@ -218,7 +247,7 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
                   key={habit.id}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                  exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
                   className={`group relative overflow-hidden bg-surface p-5 rounded-3xl border transition-all duration-300 dark:bg-dark-surface
                     ${done ? 'bg-secondary/5 border-secondary/20 shadow-inner' : 'border-txt-light/10 shadow-sm hover:shadow-md hover:border-primary/30'}
                   `}
@@ -240,14 +269,15 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {!done && (
-                            <button 
-                                onClick={() => handleDelete(habit.id)}
-                                className="opacity-0 group-hover:opacity-100 p-2 text-txt-light hover:text-red-500 transition-all"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        )}
+                        {/* MAZACIE TLAČIDLO S FIXNUTÝM KLIKOM */}
+                        <button 
+                            onClick={(e) => handleDelete(e, habit.id)}
+                            className="p-3 text-txt-light hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-full transition-all sm:opacity-0 sm:group-hover:opacity-100"
+                            aria-label="Delete habit"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+
                         <motion.button
                             whileTap={{ scale: 0.8 }}
                             onClick={() => handleToggle(habit.id)}
@@ -273,6 +303,7 @@ const Habits: React.FC<HabitsProps> = ({ habits, setHabits, user, setUser, addTo
         </motion.div>
       </LayoutGroup>
 
+      {/* MODAL PRE PRIDANIE */}
       <AnimatePresence>
         {isAdding && (
           <motion.div 
