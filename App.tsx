@@ -24,9 +24,6 @@ const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [dayPlan, setDayPlan] = useState<DayPlan | null>(null);
   
-  // ODSTRÁNENÉ: const [habits, setHabits] = useState<Habit[]>([]); 
-  // Používame už len user.habits
-
   const [isSyncing, setIsSyncing] = useState(false);
   const [toasts, setToasts] = useState<{id: number, msg: string, type: 'xp' | 'lvl'}[]>([]);
 
@@ -78,7 +75,6 @@ const App: React.FC = () => {
         localStorage.setItem('ideal_twin_lang', userData.preferences.language);
       }
 
-      // Zabezpečíme, aby habits boli vždy pole vovnútri usera
       const finalUser = {
         ...userData,
         habits: rawData.habits || userData.habits || []
@@ -97,26 +93,22 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // SYNCHRONIZÁCIA - Upravená tak, aby brala habits priamo z user objektu
- // Upravený handleSync pre istotu
-const handleSync = useCallback(async () => {
-  if (!currentUsername || !user || !dayPlan) return;
-  setIsSyncing(true);
-  try {
-    // Posielame presnú kópiu aktuálneho stavu
-    await db.saveUserData(currentUsername, { 
-      user: { ...user }, 
-      habits: [...(user.habits || [])], 
-      dayPlan: { ...dayPlan } 
-    });
-  } catch (e) {
-    console.error("Sync failed", e);
-  } finally {
-    setIsSyncing(false);
-  }
-}, [currentUsername, user, dayPlan]);
+  const handleSync = useCallback(async () => {
+    if (!currentUsername || !user || !dayPlan) return;
+    setIsSyncing(true);
+    try {
+      await db.saveUserData(currentUsername, { 
+        user: { ...user }, 
+        habits: [...(user.habits || [])], 
+        dayPlan: { ...dayPlan } 
+      });
+    } catch (e) {
+      console.error("Sync failed", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [currentUsername, user, dayPlan]);
 
-  // Autosave - sledovanie zmien v user objektu (vrátane habits)
   useEffect(() => {
     if (isAuthenticated && user && dayPlan) {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -166,6 +158,7 @@ const handleSync = useCallback(async () => {
   return (
     <div className="min-h-screen bg-canvas text-txt dark:bg-dark-canvas dark:text-white flex flex-col md:flex-row">
       
+      {/* SIDEBAR PRE DESKTOP */}
       <aside className="hidden md:flex flex-col w-72 bg-surface border-r border-txt-light/10 dark:bg-dark-surface p-6 z-40 relative overflow-hidden">
         <div className="relative mb-12 px-2 py-4">
           <div className="absolute -top-4 -left-4 w-20 h-20 bg-primary/15 rounded-full blur-2xl -z-10" />
@@ -201,37 +194,29 @@ const handleSync = useCallback(async () => {
         </div>
       </aside>
 
+      {/* HLAVNÝ OBSAH */}
       <main className="flex-1 p-4 md:p-8 pb-24 overflow-y-auto">
         <AnimatePresence mode="wait">
           <motion.div key={currentView} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="max-w-7xl mx-auto">
             {currentView === AppView.DASHBOARD && <Dashboard user={user} setUser={setUser} plan={dayPlan} onNavigate={setCurrentView} isOnline={isOnline} lang={lang} />}
             
-            {/* OPRAVENÉ: Habits teraz priamo menia user.habits */}
-            {/* OPRAVENÉ: Habits teraz s garantovanou aktualizáciou referencie */}
             {currentView === AppView.HABITS && (
-  <Habits 
-    // Používame priamo user.habits, aby sme mali "Single Source of Truth"
-    habits={user.habits || []} 
-    setHabits={(update) => {
-      setUser(prev => {
-        if (!prev) return null;
-        const currentHabits = prev.habits || [];
-        // Vyriešime, či update je funkcia alebo hodnota
-        const nextHabits = typeof update === 'function' ? update(currentHabits) : update;
-        
-        // KLÚČOVÉ: Vytvoríme úplne nový objekt usera s novým poľom habits
-        return { 
-          ...prev, 
-          habits: [...nextHabits] 
-        };
-      });
-    }} 
-    user={user} 
-    setUser={setUser} 
-    addToast={addToast} 
-    lang={lang} 
-  />
-)}
+              <Habits 
+                habits={user.habits || []} 
+                setHabits={(update) => {
+                  setUser(prev => {
+                    if (!prev) return null;
+                    const currentHabits = prev.habits || [];
+                    const nextHabits = typeof update === 'function' ? update(currentHabits) : update;
+                    return { ...prev, habits: [...nextHabits] };
+                  });
+                }} 
+                user={user} 
+                setUser={setUser} 
+                addToast={addToast} 
+                lang={lang} 
+              />
+            )}
             {currentView === AppView.PLANNER && <Planner plan={dayPlan} setPlan={setDayPlan} user={user} setUser={setUser} userGoals={user.goals || []} userPreferences={JSON.stringify(user.preferences || {})} isOnline={isOnline} lang={lang} />}
             {currentView === AppView.PROFILE && <TwinProfile user={user} setUser={setUser} lang={lang} />}
             {currentView === AppView.INBOX && <Inbox user={user} setUser={setUser} lang={lang} />}
@@ -256,17 +241,40 @@ const handleSync = useCallback(async () => {
         </AnimatePresence>
       </main>
 
+      {/* SPODNÁ NAVIGÁCIA PRE MOBILY (OPRAVENÁ) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface/90 backdrop-blur-md border-t p-3 flex justify-around dark:bg-dark-surface/90 z-50">
-        <MobileNavItem active={currentView === AppView.DASHBOARD} icon={<LayoutDashboard/>} onClick={() => setCurrentView(AppView.DASHBOARD)} />
-        <MobileNavItem active={currentView === AppView.PLANNER} icon={<Calendar/>} onClick={() => setCurrentView(AppView.PLANNER)} />
-        <MobileNavItem active={currentView === AppView.HABITS} icon={<ListChecks/>} onClick={() => setCurrentView(AppView.HABITS)} />
-        <MobileNavItem active={currentView === AppView.PROFILE} icon={<UserCircle/>} onClick={() => setCurrentView(AppView.PROFILE)} />
-        <button onClick={() => setCurrentView(AppView.SETTINGS)} className={`p-2 rounded-xl ${currentView === AppView.SETTINGS ? 'text-primary' : 'text-txt-muted'}`}><SettingsIcon size={24} /></button>
+        <MobileNavItem active={currentView === AppView.DASHBOARD} icon={<LayoutDashboard size={24} />} onClick={() => setCurrentView(AppView.DASHBOARD)} />
+        <MobileNavItem active={currentView === AppView.PLANNER} icon={<Calendar size={24} />} onClick={() => setCurrentView(AppView.PLANNER)} />
+        <MobileNavItem active={currentView === AppView.HABITS} icon={<ListChecks size={24} />} onClick={() => setCurrentView(AppView.HABITS)} />
+        <MobileNavItem active={currentView === AppView.PROFILE} icon={<UserCircle size={24} />} onClick={() => setCurrentView(AppView.PROFILE)} />
+        <button 
+          onClick={() => setCurrentView(AppView.SETTINGS)} 
+          className={`p-2 rounded-xl ${currentView === AppView.SETTINGS ? 'text-primary' : 'text-txt-muted'}`}
+        >
+          <SettingsIcon size={24} />
+        </button>
       </nav>
+      
+      {/* Toasty (notifikácie) */}
+      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2">
+        {toasts.map(toast => (
+          <motion.div 
+            key={toast.id} 
+            initial={{ x: 50, opacity: 0 }} 
+            animate={{ x: 0, opacity: 1 }} 
+            exit={{ x: 50, opacity: 0 }}
+            className={`p-4 rounded-2xl shadow-lg border font-bold text-sm ${toast.type === 'lvl' ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-dark-surface border-txt-light/10 text-primary'}`}
+          >
+            {toast.msg}
+          </motion.div>
+        ))}
+      </div>
+
     </div>
   );
 };
 
+// POMOCNÉ KOMPONENTY
 const NavItem = ({ active, icon, label, onClick }: any) => (
     <button onClick={onClick} className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all ${active ? 'bg-primary text-white font-bold shadow-md shadow-primary/20' : 'text-txt-muted hover:bg-canvas dark:text-txt-dark-muted dark:hover:bg-white/5'}`}>
         {icon} <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
