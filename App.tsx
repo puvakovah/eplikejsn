@@ -273,10 +273,10 @@ const NavItem = ({ active, icon, label, onClick }: any) => (
     </button>
 );
 
-const MobileNavItem = ({ active, icon, onClick }: any) => (
-    <button onClick={onClick} className={`p-2 rounded-xl ${active ? 'bg-primary/10 text-primary' : 'text-txt-muted'}`}>
-        {React.cloneElement(icon as React.ReactElement, { size: 24 })}
-    </button>
+const MobileNavItem = ({ active, icon, onClick }: { active: boolean, icon: React.ReactNode, onClick: () => void }) => (
+  <button onClick={onClick} className={`p-2 rounded-xl ${active ? 'bg-primary/10 text-primary' : 'text-txt-muted'}`}>
+    {icon}
+  </button>
 );
 
 export default App;
