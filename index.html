@@ -12,15 +12,7 @@
       .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(74, 109, 136, 0.2); border-radius: 10px; }
     </style>
-
     <script>
-      // PRIDANÉ: Toto opraví chybu "Missing API Key" a "process is not defined"
-      window.process = {
-        env: {
-          API_KEY: "AIzaSyBYylOLphjU5t34s1e9-dcfgyEMWa1p7YE" // <--- SEM VLOŽ SVOJ KĽÚČ
-        }
-      };
-
       tailwind.config = {
         darkMode: 'class',
         theme: {

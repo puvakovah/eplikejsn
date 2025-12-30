@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DayPlan, TimeBlock, ActivityType, UserProfile, InboxMessage } from './types';
 import { generateIdealDayPlan } from './geminiService';
@@ -17,17 +16,16 @@ interface PlannerProps {
   isOnline?: boolean;
 }
 
-const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPreferences, user, setUser, lang = 'sk', isOnline }) => {
+const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPreferences, user, setUser, lang = 'en', isOnline }) => {
   const [activeTab, setActiveTab] = useState<'plan' | 'reality'>('plan');
   const [mode, setMode] = useState<'DIY' | 'AI'>('DIY');
   const [isGenerating, setIsGenerating] = useState(false);
   const [usedFallback, setUsedFallback] = useState(false);
   const [newBlock, setNewBlock] = useState<Partial<TimeBlock>>({ startTime: '09:00', endTime: '10:00', title: '', type: 'work' });
 
-  // SAFETY GUARD
   if (!user) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-primary" /></div>;
 
-  const t = (key: string) => translations[lang][key] || key;
+  const t = (key: string) => translations[lang][key as keyof typeof translations.en] || key;
 
   const awardPlanningXp = () => {
     if (!user.dailyPlanCreated) {
@@ -36,7 +34,7 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
             dailyPlanCreated: true,
             xp: user.xp + LEVELING_SYSTEM.xpValues.PLAN_DAY
         });
-        alert(`Denný plán vytvorený! +${LEVELING_SYSTEM.xpValues.PLAN_DAY} XP`);
+        alert(`${t('plan.success_gen')} +${LEVELING_SYSTEM.xpValues.PLAN_DAY} XP`);
     }
   };
 
@@ -44,7 +42,7 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
     if (!newBlock.title) return;
     const block: TimeBlock = {
       id: Date.now().toString(),
-      title: newBlock.title || 'New Task',
+      title: newBlock.title || 'Task',
       startTime: newBlock.startTime || '00:00',
       endTime: newBlock.endTime || '01:00',
       type: newBlock.type as ActivityType || 'work',
@@ -58,29 +56,13 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
     awardPlanningXp();
   };
 
-  const deleteBlock = (id: string) => {
-      const updatedPlanned = plan.plannedBlocks.filter(b => b.id !== id);
-      const updatedActual = plan.actualBlocks.filter(b => b.id !== id);
-      setPlan({ ...plan, plannedBlocks: updatedPlanned, actualBlocks: updatedActual });
-  };
-
-  const clearPlan = () => {
-      if (confirm(t('plan.confirm_clear'))) {
-          setPlan({ ...plan, plannedBlocks: [], actualBlocks: [] });
-      }
-  };
-
   const handleAiGenerate = async () => {
     setIsGenerating(true);
     setUsedFallback(false);
     try {
-      const result = await generateIdealDayPlan(userGoals, userPreferences);
+      const result = await generateIdealDayPlan(userGoals, userPreferences, lang);
       
       if (result && result.blocks) {
-        if (result.blocks[0]?.title === "Ranná rutina & Hydratácia") {
-            setUsedFallback(true);
-        }
-
         const generatedBlocks = result.blocks.map((b: any, idx: number) => ({
           id: `ai-${idx}`,
           title: b.title,
@@ -91,11 +73,10 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
           notes: b.reason
         }));
         setPlan({ ...plan, plannedBlocks: generatedBlocks, actualBlocks: generatedBlocks.map((b:any) => ({...b})) });
-        
         awardPlanningXp();
       }
     } catch (e) {
-      alert("Nepodarilo sa vytvoriť plán. Skúste to manuálne.");
+      alert(t('plan.error_gen'));
     } finally {
       setIsGenerating(false);
     }
@@ -111,14 +92,14 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
     }
 
     if (user.dailyBlockCount >= LEVELING_SYSTEM.config.maxBlocksPerDay) {
-        alert("Denný limit XP pre bloky dosiahnutý. Pokračuj, ale bez XP.");
+        alert(t('plan.limit_reached'));
     }
 
     let xpGain = 0;
     if (user.dailyBlockCount < LEVELING_SYSTEM.config.maxBlocksPerDay) {
-        if (type === 'work' || type === 'exercise' || type === 'habit') {
+        if (['work', 'exercise', 'habit'].includes(type)) {
             xpGain = LEVELING_SYSTEM.xpValues.COMPLETE_WORK_BLOCK;
-        } else if (type === 'rest' || type === 'social' || type === 'health') {
+        } else if (['rest', 'social', 'health'].includes(type)) {
             xpGain = LEVELING_SYSTEM.xpValues.COMPLETE_REST_BLOCK;
         } else {
             xpGain = LEVELING_SYSTEM.xpValues.TRACK_REALITY;
@@ -132,48 +113,8 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
 
     if (xpGain > 0) {
         let currentXp = user.xp + xpGain;
-        let newInboxMessages: InboxMessage[] = [];
-        const today = new Date().toISOString().split('T')[0];
-        const allDone = updatedReality.every(b => b.isCompleted);
-        const bonusXp = LEVELING_SYSTEM.xpValues.PERFECT_DAY_BONUS;
-
-        if (allDone && updatedReality.length >= 3) {
-             const alreadyAwarded = user.messages.some(m => 
-                m.type === 'achievement' && 
-                m.subject.includes('Perfektný Deň') && 
-                m.date.startsWith(today)
-             );
-
-             if (!alreadyAwarded) {
-                 currentXp += bonusXp;
-                 newInboxMessages.push({
-                    id: `pd-${Date.now()}`,
-                    sender: 'IdealTwin Assistant',
-                    subject: `Perfektný Deň (+${bonusXp} XP)`,
-                    body: `Perfektný Deň! Získal si bonus +${bonusXp} XP za dokončenie všetkých naplánovaných blokov. Len tak ďalej, ${user.firstName || user.name}!`,
-                    date: new Date().toISOString(),
-                    read: false,
-                    type: 'achievement'
-                 });
-             }
-        }
-
-        const oldLevel = user.twinLevel;
         const finalLevelInfo = getLevelInfo(currentXp);
         
-        if (finalLevelInfo.level > oldLevel) {
-            const unlockMsg = finalLevelInfo.unlock ? ` Odomknuté: ${finalLevelInfo.unlock}.` : '';
-            newInboxMessages.push({
-                id: `lvl-${Date.now()}`,
-                sender: 'IdealTwin Assistant',
-                subject: `Level Up! Úroveň ${finalLevelInfo.level} - ${finalLevelInfo.title}`,
-                body: `Gratulujeme! Dosiahol si Level ${finalLevelInfo.level} – ${finalLevelInfo.title}. Tvoj Dvojník získal väčšiu veľkosť a energiu.${unlockMsg}`,
-                date: new Date().toISOString(),
-                read: false,
-                type: 'achievement'
-            });
-        }
-
         setUser({
             ...user,
             xp: currentXp,
@@ -181,8 +122,7 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
             levelTitle: finalLevelInfo.title,
             xpToNextLevel: finalLevelInfo.nextLevelXp,
             dailyBlockCount: user.dailyBlockCount + 1,
-            energy: finalLevelInfo.level > oldLevel ? 100 : user.energy,
-            messages: [...user.messages, ...newInboxMessages]
+            energy: finalLevelInfo.level > user.twinLevel ? 100 : user.energy,
         });
     }
   };
@@ -236,7 +176,7 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
         <div className="bg-surface p-4 rounded-xl border border-txt-light/20 flex flex-wrap gap-3 items-end shadow-sm dark:bg-dark-surface dark:border-txt-light/10">
           <div className="flex-1 min-w-[200px]">
              <label className="text-xs text-txt-muted block mb-1 dark:text-txt-dark-muted">{t('plan.activity')}</label>
-             <input type="text" className="w-full border border-txt-light/30 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-canvas dark:bg-dark-canvas dark:border-txt-light/10 dark:text-txt-dark" placeholder="Napr. Deep Work" value={newBlock.title} onChange={(e) => setNewBlock({...newBlock, title: e.target.value})} />
+             <input type="text" className="w-full border border-txt-light/30 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-canvas dark:bg-dark-canvas dark:border-txt-light/10 dark:text-txt-dark" placeholder={t('plan.activity_placeholder')} value={newBlock.title} onChange={(e) => setNewBlock({...newBlock, title: e.target.value})} />
           </div>
           <div className="w-24">
              <label className="text-xs text-txt-muted block mb-1 dark:text-txt-dark-muted">{t('plan.from')}</label>
@@ -256,7 +196,7 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
                <button onClick={() => setActiveTab('reality')} className={`flex-1 py-4 text-sm font-semibold text-center transition-all ${activeTab === 'reality' ? 'text-txt border-b-2 border-txt-light bg-canvas dark:text-white dark:bg-dark-canvas' : 'text-txt-muted hover:bg-canvas hover:text-txt dark:text-txt-dark-muted dark:hover:bg-white/5 dark:hover:text-white'}`}> {t('plan.tab_reality')} </button>
            </div>
            {currentBlocks.length > 0 && activeTab === 'plan' && (
-               <button onClick={clearPlan} className="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"> <XCircle size={14} /> {t('plan.clear_all')} </button>
+               <button onClick={() => { if(confirm(t('plan.confirm_clear'))) setPlan({ ...plan, plannedBlocks: [], actualBlocks: [] }) }} className="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"> <XCircle size={14} /> {t('plan.clear_all')} </button>
            )}
         </div>
         <div className="p-6 space-y-4">
@@ -273,7 +213,7 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
                            <div className="flex items-center justify-between w-full">
                               <div>
                                 <h4 className={`font-semibold ${activeTab === 'reality' && block.isCompleted ? 'line-through opacity-70' : ''}`}> {block.title} </h4>
-                                <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full mt-1 inline-block border ${['work', 'rest', 'habit', 'health', 'exercise'].includes(block.type) && activeTab === 'plan' ? 'bg-white/20 border-white/30 text-white' : 'bg-canvas text-txt-muted border-txt-light/20 dark:bg-dark-canvas dark:text-txt-dark-muted dark:border-white/10'}`}> {block.type} </span>
+                                <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full mt-1 inline-block border ${['work', 'rest', 'habit', 'health', 'exercise'].includes(block.type) && activeTab === 'plan' ? 'bg-white/20 border-white/30 text-white' : 'bg-canvas text-txt-muted border-txt-light/20 dark:bg-dark-canvas dark:text-txt-dark-muted dark:border-white/10'}`}> {t(`activity.${block.type}`)} </span>
                               </div>
                               {activeTab === 'reality' && (
                                 <div className={`transition-colors ${block.isCompleted ? 'text-secondary' : 'text-txt-light dark:text-txt-dark-muted'}`}> {block.isCompleted ? <CheckCircle size={24} /> : <Circle size={24} />} </div>
@@ -281,7 +221,7 @@ const Planner: React.FC<PlannerProps> = ({ plan, setPlan, userGoals, userPrefere
                            </div>
                         </div>
                         {activeTab === 'plan' && (
-                            <button onClick={() => deleteBlock(block.id)} className="p-2 text-txt-light hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" > <Trash2 size={16} /> </button>
+                            <button onClick={() => setPlan({ ...plan, plannedBlocks: plan.plannedBlocks.filter(b => b.id !== block.id), actualBlocks: plan.actualBlocks.filter(b => b.id !== block.id) })} className="p-2 text-txt-light hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" > <Trash2 size={16} /> </button>
                         )}
                     </div>
                     {block.notes && ( <p className="text-xs text-txt-muted mt-2 ml-1 italic dark:text-txt-dark-muted"> 💡 {t('plan.twin_tip')} {block.notes} </p> )}

@@ -128,15 +128,14 @@ export const db = {
           energy: 100,
           messages: [{
               id: 'welcome-1',
-              // Používame kľúče, ktoré máš (alebo pridáš) v translations.ts
-              sender: 'inbox.welcome_sender', 
-              subject: 'inbox.welcome_subject',
-              body: 'inbox.welcome_body',
+              sender: 'IdealTwin Team',
+              subject: 'Vitaj v IdealTwin!',
+              body: 'Tvoj virtuálny dvojník je pripravený rásť spolu s tebou. Začni vytvorením denného plánu.',
               date: new Date().toISOString(),
               read: false,
               type: 'welcome'
           }],
-                    healthData: {},
+          healthData: {},
           dailyContext: {},
           isSick: false,
           isHealthSynced: false,
@@ -193,19 +192,16 @@ export const db = {
   },
 
   saveUserData: async (username: string, data: any) => {
-    // 1. Najprv aktualizujeme lokálnu cache
     Cache.set(username, data);
-    
     if (!supabase || !navigator.onLine) return { success: true };
 
     try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return { success: false, message: "No active session" };
 
-        // 2. Kľúčová oprava: Uisti sa, že ukladáš presne to, čo prišlo
         const { error } = await supabase.from('profiles').upsert({ 
             id: session.user.id, 
-            data: data, // Celý objekt (user + habits + dayPlan)
+            data, 
             username, 
             updated_at: new Date().toISOString() 
         }, { onConflict: 'id' });

@@ -125,7 +125,6 @@ export interface UserProfile {
   streetAddress?: string;
   city?: string;
   country?: string;
-  habits?: Habit[];
   goals: string[]; 
   
   preferences: UserPreferences; 

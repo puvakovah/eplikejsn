@@ -93,29 +93,6 @@ export const translations = {
     'profile.section.shoes': 'Obuv',
     'profile.section.acc': 'Doplnky',
 
-    // Inbox UI
-    'inbox.title': 'Doručená pošta',
-    'inbox.new': 'Nové',
-    'inbox.empty': 'Žiadne správy',
-    'inbox.back': 'Späť',
-    'inbox.select': 'Vyberte správu pre zobrazenie detailu',
-    'inbox.delete_confirm': 'Naozaj vymazať túto správu?',
-    'inbox.achievement_alert': 'Nový úspech!',
-    'inbox.welcome_alert': 'Vitaj na palube!',
-
-    // Obsah e-mailov (Kľúče)
-    'msg.welcome.sender': 'IdealTwin Tím',
-    'msg.welcome.subject': 'Vitaj vo svojej novej ére! 🚀',
-    'msg.welcome.body': 'Sme nadšení, že si sa pridal! Tvoj digitálny dvojník je pripravený rásť spolu s tebou. Každý splnený návyk ťa posúva k lepšiemu ja.',
-    
-    'msg.reg.sender': 'IdealTwin Tím',
-    'msg.reg.subject': 'Tvoj účet je pripravený! 🎊',
-    'msg.reg.body': 'Ahoj {name},<br/><br/>Sme nadšení, že si sa pridal/a k nám! Tvoj účet bol úspešne vytvorený.<br/><br/><b>Tvoje prihlasovacie údaje:</b><br/>Username: {name}<br/>Email: {email}<br/><br/>Teraz môžeš začať formovať svojho Dvojníka!',
-
-    'msg.achievement.sender': 'Systém',
-    'msg.achievement.subject': 'Dosiahol si novú úroveň!',
-    'msg.achievement.body': 'Gratulujeme! Tvoj progres je pôsobivý. Pokračuj v udržiavaní série a odomkni nové možnosti.',
-
     // Kategórie aktivít
     'activity.work': 'Práca',
     'activity.rest': 'Oddych',
@@ -144,7 +121,7 @@ export const translations = {
 
     'avatar.bottom.jeans': 'Džínsy',
     'avatar.bottom.sweatpants': 'Tepláky',
-    'avatar.bottom.shorts': 'Shorts',
+    'avatar.bottom.shorts': 'Šortky',
     'avatar.bottom.skirt': 'Sukňa',
     'avatar.bottom.leggings': 'Legíny',
 
@@ -270,29 +247,6 @@ export const translations = {
     'profile.section.bottom': 'Bottom wear',
     'profile.section.shoes': 'Footwear',
     'profile.section.acc': 'Accessories',
-
-    // Inbox UI
-    'inbox.title': 'Inbox',
-    'inbox.new': 'New',
-    'inbox.empty': 'No messages',
-    'inbox.back': 'Back',
-    'inbox.select': 'Select a message to view detail',
-    'inbox.delete_confirm': 'Are you sure you want to delete this message?',
-    'inbox.achievement_alert': 'New Achievement!',
-    'inbox.welcome_alert': 'Welcome aboard!',
-
-    // Email Content (Keys)
-    'msg.welcome.sender': 'IdealTwin Team',
-    'msg.welcome.subject': 'Welcome to your new era! 🚀',
-    'msg.welcome.body': 'We are thrilled to have you! Your digital twin is ready to grow with you. Every habit completed moves you closer to your best self.',
-    
-    'msg.reg.sender': 'IdealTwin Team',
-    'msg.reg.subject': 'Your account is ready! 🎊',
-    'msg.reg.body': 'Hello {name},<br/><br/>We are excited to have you with us! Your account has been successfully created.<br/><br/><b>Your login details:</b><br/>Username: {name}<br/>Email: {email}<br/><br/>Now you can start shaping your Twin!',
-
-    'msg.achievement.sender': 'System',
-    'msg.achievement.subject': 'New Level Reached!',
-    'msg.achievement.body': 'Congratulations! Your progress is impressive. Keep up the streak and unlock new possibilities.',
 
     // Activity Types
     'activity.work': 'Work',
