@@ -32,26 +32,22 @@ const App: React.FC = () => {
 
   const t = (key: string) => translations[lang][key as keyof typeof translations.en] || key;
 
-  // Theme Management
+  // Téma a Dark Mode
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
     }
   }, []);
 
-  // Connection Management
+  // Sledovanie online stavu
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
     };
   }, []);
 
@@ -61,18 +57,22 @@ const App: React.FC = () => {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
 
-  const processIncomingData = useCallback((data: any) => {
-    if (!data) return false;
+  // OPRAVA: Robustnejšie spracovanie prichádzajúcich dát
+  const processIncomingData = useCallback((rawData: any) => {
+    if (!rawData) return false;
     try {
-      const rawData = data.data || data;
-      const userData = rawData.user || rawData; 
-      if (!userData || !userData.name) return false;
+      const data = rawData.data || rawData;
+      // Ak sú dáta obalené v objekte zo Supabase
+      const userData = data.user || data; 
+      
+      if (!userData || !userData.name) {
+          console.error("Invalid user data structure", data);
+          return false;
+      }
 
       setUser(userData);
-      setHabits(rawData.habits || userData.habits || []);
-      
-      // Ak plán neexistuje, vytvoríme aspoň základnú štruktúru, aby Dashboard nečakal
-      setDayPlan(rawData.dayPlan || userData.currentPlan || {
+      setHabits(data.habits || []);
+      setDayPlan(data.dayPlan || {
         date: new Date().toISOString().split('T')[0],
         plannedBlocks: [],
         actualBlocks: []
@@ -84,8 +84,9 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // OPRAVA: Autosave logika
   const handleSync = useCallback(async () => {
-    if (!currentUsername || !user) return; // Odstránená prísna podmienka na dayPlan
+    if (!currentUsername || !user) return;
     setIsSyncing(true);
     try {
         const fullProfile = { user, habits, dayPlan };
@@ -100,55 +101,49 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated && user) {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = setTimeout(() => {
-        handleSync();
-      }, 2000);
+      saveTimeoutRef.current = setTimeout(handleSync, 3000); // 3 sekundy delay pre stabilitu
     }
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
   }, [user, habits, dayPlan, isAuthenticated, handleSync]);
 
- useEffect(() => {
-  const init = async () => {
-    if (!isAuthenticated) { 
-      setIsLoading(false); 
-      return; 
-    }
-    
-    console.log("DEBUG: Štartujem inicializáciu...");
-    setIsLoading(true);
-    
-    try {
-      // Nastavíme timeout - ak sa databáza neozve do 5 sekúnd, skúsime cache
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Database timeout")), 5000)
-      );
-      
-      const res: any = await Promise.race([db.getSession(), timeoutPromise]);
-      console.log("DEBUG: Dáta z DB prišli:", res);
+  // OPRAVA: Inicializácia aplikácie - odstránené nekonečné loopy
+  useEffect(() => {
+    let isMounted = true;
 
-      if (res.success && res.data) {
-        const success = processIncomingData(res.data);
-        if (res.username) setCurrentUsername(res.username);
-        if (!success) console.error("DEBUG: Nepodarilo sa spracovať dáta (processIncomingData)");
-      } else {
-        console.warn("DEBUG: Session neúspešná, kontrolujem localStorage");
-        const cachedUser = localStorage.getItem('ideal_twin_username');
-        if (!cachedUser) setIsAuthenticated(false);
+    const init = async () => {
+      if (!isAuthenticated) { 
+        if (isMounted) setIsLoading(false); 
+        return; 
       }
-    } catch (err) { 
-      console.error("DEBUG: Kritická chyba pri načítaní:", err);
-      // Failsafe: Ak všetko zlyhá, skúsime aspoň zobraziť to, čo máme v pamäti
-      const cachedUsername = localStorage.getItem('ideal_twin_username');
-      if (cachedUsername) {
-        setCurrentUsername(cachedUsername);
+
+      try {
+        const res = await db.getSession();
+        if (!isMounted) return;
+
+        if (res.success && res.data) {
+          processIncomingData(res.data);
+          if (res.username) {
+            setCurrentUsername(res.username);
+            localStorage.setItem('ideal_twin_username', res.username);
+          }
+        } else {
+          // Ak zlyhá session a nie sme online, skúsime len local
+          if (!navigator.onLine) {
+             console.warn("Offline: Using local state");
+          } else {
+             setIsAuthenticated(false);
+          }
+        }
+      } catch (err) {
+        if (isMounted) setLoadError(t('sys.conn_error'));
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    } finally { 
-      console.log("DEBUG: Končím loading...");
-      setIsLoading(false); 
-    }
-  };
-  init();
-}, [isAuthenticated, processIncomingData]);
+    };
+
+    init();
+    return () => { isMounted = false; };
+  }, [isAuthenticated, processIncomingData]);
 
   const handleLogin = (username: string, data: any) => {
     localStorage.setItem('ideal_twin_username', username);
@@ -165,11 +160,12 @@ const App: React.FC = () => {
     window.location.reload();
   };
 
+  // Renderovanie chybových stavov
   if (loadError) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-canvas p-6 dark:bg-dark-canvas">
+    <div className="h-screen flex flex-col items-center justify-center bg-canvas p-6 dark:bg-dark-canvas text-center">
       <AlertCircle size={64} className="text-red-500 mb-4" />
       <h2 className="text-2xl font-bold mb-2 dark:text-white">{loadError}</h2>
-      <button onClick={() => window.location.reload()} className="bg-primary text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2">
+      <button onClick={() => window.location.reload()} className="bg-primary text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 mt-4 hover:bg-primary-hover transition-colors">
         <RefreshCcw size={20} /> {t('sys.retry')}
       </button>
     </div>
@@ -177,36 +173,36 @@ const App: React.FC = () => {
 
   if (!isAuthenticated) return <Auth onLogin={handleLogin} />;
 
-  // --- KRITICKÁ OPRAVA: Odstránená podmienka !dayPlan ---
-  // Aplikácia sa spustí, hneď ako máme dáta o používateľovi.
   if (isLoading || !user) return (
     <div className="h-screen flex flex-col items-center justify-center bg-canvas dark:bg-dark-canvas text-primary">
-      <Loader2 size={48} className="animate-spin" />
-      <p className="mt-4 font-bold text-xs uppercase tracking-widest">{t('sys.loading')}</p>
+      <Loader2 size={48} className="animate-spin text-primary" />
+      <p className="mt-4 font-bold text-xs uppercase tracking-widest animate-pulse">{t('sys.loading')}</p>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-canvas text-txt dark:bg-dark-canvas dark:text-white flex flex-col md:flex-row">
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[120] flex flex-col gap-2">
+      {/* Toast notifikácie */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[120] flex flex-col gap-2 pointer-events-none">
         <AnimatePresence>
           {toasts.map(toast => (
-            <motion.div key={toast.id} initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.5 }} className="px-6 py-3 rounded-full bg-primary text-white font-bold shadow-2xl border border-white/20">
+            <motion.div key={toast.id} initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.5 }} className="px-6 py-3 rounded-full bg-primary text-white font-bold shadow-2xl border border-white/20 pointer-events-auto">
               {toast.msg}
             </motion.div>
           ))}
           {isSyncing && (
-             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="px-4 py-2 rounded-full bg-secondary text-white text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 mx-auto">
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="px-4 py-2 rounded-full bg-secondary text-white text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 mx-auto shadow-lg">
                <RefreshCcw size={10} className="animate-spin" /> {t('dash.syncing')}
              </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <aside className="hidden md:flex flex-col w-72 bg-surface border-r border-txt-light/20 dark:bg-dark-surface p-6">
+      {/* Sidebar Desktop */}
+      <aside className="hidden md:flex flex-col w-72 bg-surface border-r border-txt-light/20 dark:bg-dark-surface dark:border-white/10 p-6">
           <div className="flex items-center justify-between mb-10">
             <h1 className="text-2xl font-black text-primary tracking-tighter uppercase italic">IdealTwin</h1>
-            {isOnline ? <Cloud className="text-secondary" size={18} /> : <CloudOff className="text-red-400" size={18} />}
+            {isOnline ? <Cloud className="text-secondary" size={18} title="Online" /> : <CloudOff className="text-red-400" size={18} title="Offline" />}
           </div>
           <nav className="space-y-2 flex-1">
             <NavItem active={currentView === AppView.DASHBOARD} icon={<LayoutDashboard size={20}/>} label={t('nav.dashboard')} onClick={() => setCurrentView(AppView.DASHBOARD)} />
@@ -221,12 +217,19 @@ const App: React.FC = () => {
           </button>
       </aside>
 
-      <main className="flex-1 p-4 md:p-8 pb-24 overflow-y-auto">
+      {/* Hlavný obsah */}
+      <main className="flex-1 p-4 md:p-8 pb-24 overflow-y-auto custom-scrollbar">
         <AnimatePresence mode="wait">
-          <motion.div key={currentView} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            {currentView === AppView.DASHBOARD && <Dashboard user={user} setUser={setUser} plan={dayPlan} onNavigate={setCurrentView} isOnline={isOnline} lang={lang} />}
+          <motion.div 
+            key={currentView} 
+            initial={{ opacity: 0, x: 10 }} 
+            animate={{ opacity: 1, x: 0 }} 
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            {currentView === AppView.DASHBOARD && <Dashboard user={user} setUser={setUser} plan={dayPlan!} onNavigate={setCurrentView} isOnline={isOnline} lang={lang} />}
             {currentView === AppView.HABITS && <Habits habits={habits} setHabits={setHabits} user={user} setUser={setUser} addToast={addToast} lang={lang} />}
-            {currentView === AppView.PLANNER && <Planner plan={dayPlan} setPlan={setDayPlan} user={user} setUser={setUser} userGoals={user.goals || []} userPreferences={JSON.stringify(user.preferences || {})} isOnline={isOnline} lang={lang} />}
+            {currentView === AppView.PLANNER && <Planner plan={dayPlan!} setPlan={setDayPlan} user={user} setUser={setUser} userGoals={user.goals || []} userPreferences={JSON.stringify(user.preferences || {})} isOnline={isOnline} lang={lang} />}
             {currentView === AppView.PROFILE && <TwinProfile user={user} setUser={setUser} lang={lang} />}
             {currentView === AppView.INBOX && <Inbox user={user} setUser={setUser} lang={lang} />}
             {currentView === AppView.SETTINGS && <Settings user={user} setUser={setUser} onLogout={handleLogout} onSync={handleSync} isSyncing={isSyncing} lang={lang} setLang={setLang} />}
@@ -234,25 +237,26 @@ const App: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t p-3 flex justify-around dark:bg-dark-surface z-50">
+      {/* Navigácia Mobile */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t p-3 flex justify-around dark:bg-dark-surface dark:border-white/10 z-50">
         <MobileNavItem active={currentView === AppView.DASHBOARD} icon={<LayoutDashboard/>} onClick={() => setCurrentView(AppView.DASHBOARD)} />
         <MobileNavItem active={currentView === AppView.PLANNER} icon={<Calendar/>} onClick={() => setCurrentView(AppView.PLANNER)} />
         <MobileNavItem active={currentView === AppView.HABITS} icon={<ListChecks/>} onClick={() => setCurrentView(AppView.HABITS)} />
         <MobileNavItem active={currentView === AppView.PROFILE} icon={<UserCircle/>} onClick={() => setCurrentView(AppView.PROFILE)} />
-        <button onClick={() => setCurrentView(AppView.SETTINGS)} className={`p-2 ${currentView === AppView.SETTINGS ? 'text-primary' : 'text-txt-muted'}`}><SettingsIcon size={24} /></button>
+        <button onClick={() => setCurrentView(AppView.SETTINGS)} className={`p-2 transition-colors ${currentView === AppView.SETTINGS ? 'text-primary' : 'text-txt-muted'}`}><SettingsIcon size={24} /></button>
       </nav>
     </div>
   );
 };
 
 const NavItem = ({ active, icon, label, onClick }: any) => (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all ${active ? 'bg-primary text-white font-bold' : 'text-txt-muted hover:bg-canvas dark:text-txt-dark-muted'}`}>
-        {icon} <span className="text-sm font-bold uppercase">{label}</span>
+    <button onClick={onClick} className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all ${active ? 'bg-primary text-white font-bold shadow-md' : 'text-txt-muted hover:bg-canvas dark:text-txt-dark-muted dark:hover:bg-white/5'}`}>
+        {icon} <span className="text-sm font-bold uppercase tracking-tight">{label}</span>
     </button>
 );
 
 const MobileNavItem = ({ active, icon, onClick }: any) => (
-    <button onClick={onClick} className={`p-2 ${active ? 'text-primary' : 'text-txt-muted'}`}>{icon}</button>
+    <button onClick={onClick} className={`p-2 transition-colors ${active ? 'text-primary' : 'text-txt-muted'}`}>{icon}</button>
 );
 
 export default App;
