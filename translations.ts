@@ -42,6 +42,7 @@ export const translations = {
     'plan.ai_offline': 'AI je offline (Zobrazený demo plán)',
     'plan.activity': 'Aktivita',
     'plan.activity_placeholder': 'Napr. Hlboká práca',
+    'plan.activity_type': 'Typ aktivity',
     'plan.from': 'Od',
     'plan.to': 'Do',
     'plan.tab_plan': 'Plán (Dvojník)',
@@ -53,6 +54,15 @@ export const translations = {
     'plan.error_gen': 'Nepodarilo sa vytvoriť plán. Skúste to manuálne.',
     'plan.success_gen': 'Denný plán vytvorený!',
     'plan.limit_reached': 'Denný limit XP pre bloky dosiahnutý.',
+
+    // Kategórie aktivít (TOTO SÚ TIE PREKLADY PRE CVIČENIE, PRÁCU...)
+    'activity.work': 'Práca',
+    'activity.rest': 'Oddych',
+    'activity.habit': 'Návyk',
+    'activity.exercise': 'Cvičenie',
+    'activity.social': 'Socializácia',
+    'activity.health': 'Zdravie',
+    'activity.other': 'Iné',
 
     // Návyky
     'habits.title': 'Moje Návyky',
@@ -93,15 +103,6 @@ export const translations = {
     'profile.section.shoes': 'Obuv',
     'profile.section.acc': 'Doplnky',
 
-    // Kategórie aktivít
-    'activity.work': 'Práca',
-    'activity.rest': 'Oddych',
-    'activity.habit': 'Návyk',
-    'activity.exercise': 'Cvičenie',
-    'activity.social': 'Socializácia',
-    'activity.health': 'Zdravie',
-    'activity.other': 'Iné',
-
     // Avatar Atribúty
     'avatar.hair.short': 'Krátke',
     'avatar.hair.long': 'Dlhé',
@@ -112,13 +113,11 @@ export const translations = {
     'avatar.hair.ponytail': 'Cop',
     'avatar.hair.wavy': 'Vlnité',
     'avatar.hair.bald': 'Bez vlasov',
-
     'avatar.top.tshirt': 'Tričko',
     'avatar.top.hoodie': 'Mikina',
     'avatar.top.shirt': 'Košeľa',
     'avatar.top.jacket': 'Bunda',
     'avatar.top.tanktop': 'Tielko',
-
     'avatar.bottom.jeans': 'Džínsy',
     'avatar.bottom.sweatpants': 'Tepláky',
     'avatar.bottom.shorts': 'Šortky',
@@ -130,22 +129,10 @@ export const translations = {
     'settings.appearance': 'Vzhľad',
     'settings.language': 'Jazyk',
     'settings.notifications': 'Notifikácie',
-    'settings.health': 'Zdravie',
-    'settings.personal_info': 'Osobné údaje',
-    'settings.name': 'Meno',
-    'settings.surname': 'Priezvisko',
-    'settings.email': 'Email',
-    'settings.dob': 'Dátum narodenia',
-    'settings.address_info': 'Adresa',
-    'settings.street': 'Ulica',
-    'settings.city': 'Mesto',
-    'settings.country': 'Krajina',
     'settings.mode_title': 'Motív',
     'settings.light': 'Svetlý',
     'settings.dark': 'Tmavý',
     'settings.lang_title': 'Jazyk aplikácie',
-    'settings.notif_toggle': 'Povoliť upozornenia',
-    'settings.notif_push_desc': 'Dostávajte upozornenia na naplánované aktivity.',
     'settings.save': 'Uložiť',
     'settings.saving': 'Ukladám...',
     'settings.saved': 'Uložené',
@@ -197,6 +184,7 @@ export const translations = {
     'plan.ai_offline': 'AI is offline (Demo plan shown)',
     'plan.activity': 'Activity',
     'plan.activity_placeholder': 'e.g., Deep Work',
+    'plan.activity_type': 'Activity Type',
     'plan.from': 'From',
     'plan.to': 'To',
     'plan.tab_plan': 'Plan (Twin)',
@@ -208,6 +196,15 @@ export const translations = {
     'plan.error_gen': 'Failed to create plan. Try manually.',
     'plan.success_gen': 'Daily plan created!',
     'plan.limit_reached': 'Daily XP limit for blocks reached.',
+
+    // Activity Categories
+    'activity.work': 'Work',
+    'activity.rest': 'Rest',
+    'activity.habit': 'Habit',
+    'activity.exercise': 'Exercise',
+    'activity.social': 'Social',
+    'activity.health': 'Health',
+    'activity.other': 'Other',
 
     // Habits
     'habits.title': 'My Habits',
@@ -248,15 +245,6 @@ export const translations = {
     'profile.section.shoes': 'Footwear',
     'profile.section.acc': 'Accessories',
 
-    // Activity Types
-    'activity.work': 'Work',
-    'activity.rest': 'Rest',
-    'activity.habit': 'Habit',
-    'activity.exercise': 'Exercise',
-    'activity.social': 'Social',
-    'activity.health': 'Health',
-    'activity.other': 'Other',
-
     // Avatar Attributes
     'avatar.hair.short': 'Short',
     'avatar.hair.long': 'Long',
@@ -267,13 +255,11 @@ export const translations = {
     'avatar.hair.ponytail': 'Ponytail',
     'avatar.hair.wavy': 'Wavy',
     'avatar.hair.bald': 'Bald',
-
     'avatar.top.tshirt': 'T-Shirt',
     'avatar.top.hoodie': 'Hoodie',
     'avatar.top.shirt': 'Shirt',
     'avatar.top.jacket': 'Jacket',
     'avatar.top.tanktop': 'Tank Top',
-
     'avatar.bottom.jeans': 'Jeans',
     'avatar.bottom.sweatpants': 'Sweatpants',
     'avatar.bottom.shorts': 'Shorts',
@@ -285,22 +271,10 @@ export const translations = {
     'settings.appearance': 'Appearance',
     'settings.language': 'Language',
     'settings.notifications': 'Notifications',
-    'settings.health': 'Health',
-    'settings.personal_info': 'Personal Info',
-    'settings.name': 'First Name',
-    'settings.surname': 'Last Name',
-    'settings.email': 'Email',
-    'settings.dob': 'Date of Birth',
-    'settings.address_info': 'Address',
-    'settings.street': 'Street',
-    'settings.city': 'City',
-    'settings.country': 'Country',
     'settings.mode_title': 'Theme',
     'settings.light': 'Light',
     'settings.dark': 'Dark',
     'settings.lang_title': 'App Language',
-    'settings.notif_toggle': 'Enable Notifications',
-    'settings.notif_push_desc': 'Receive alerts for scheduled activities.',
     'settings.save': 'Save',
     'settings.saving': 'Saving...',
     'settings.saved': 'Saved',
