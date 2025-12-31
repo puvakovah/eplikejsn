@@ -9,7 +9,7 @@ import { translations, Language } from './translations';
 interface DashboardProps {
   user: UserProfile;
   setUser: (u: UserProfile) => void;
-  plan: DayPlan;
+  plan: DayPlan | null; // Zmena na null-able
   onNavigate: (view: AppView) => void;
   lang?: Language;
   isOnline?: boolean;
@@ -18,7 +18,14 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 'en', isOnline = true }) => {
   const t = (key: string) => translations[lang][key as keyof typeof translations.en] || key;
 
-  if (!user || !plan) return (
+  // Ak nemáme plán, vytvoríme si prázdny, aby sme mohli vykresliť UI
+  const safePlan = plan || {
+    date: new Date().toISOString().split('T')[0],
+    plannedBlocks: [],
+    actualBlocks: []
+  };
+
+  if (!user) return (
     <div className="flex flex-col items-center justify-center p-20 text-primary h-full">
       <Loader2 className="animate-spin mb-2" size={40} />
       <p className="text-xs font-bold uppercase tracking-widest opacity-50">{t('dash.loading')}</p>
@@ -26,8 +33,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 'e
   );
 
   const today = new Date().toISOString().split('T')[0];
-  const completedTasks = plan.actualBlocks?.filter(b => b.isCompleted).length || 0;
-  const totalTasks = plan.plannedBlocks?.length || 1; 
+  const completedTasks = safePlan.actualBlocks?.filter(b => b.isCompleted).length || 0;
+  const totalTasks = safePlan.plannedBlocks?.length || 1; 
   const progress = Math.round((completedTasks / totalTasks) * 100);
 
   const levelData = calculateLevelData(user.xp || 0);
@@ -82,52 +89,40 @@ const Dashboard: React.FC<DashboardProps> = ({ user, plan, onNavigate, lang = 'e
                 <motion.div 
                     initial={{ width: 0 }} 
                     animate={{ width: `${levelData.progressPercent}%` }} 
-                    className="h-full bg-primary shadow-[0_0_10px_rgba(74,109,136,0.5)]" 
+                    className="h-full bg-primary" 
                 />
             </div>
           </div>
-          <div className="pt-6 border-t border-txt-light/10 dark:border-white/10 flex justify-between">
+          <div className="pt-6 border-t dark:border-white/10 flex justify-between">
              <span className="text-[10px] font-black uppercase text-txt-muted tracking-widest">{t('dash.completed')}: {completedTasks}</span>
-             <span className="text-[10px] font-black uppercase text-secondary tracking-widest">{progress}% {t('dash.completed')}</span>
+             <span className="text-[10px] font-black uppercase text-secondary tracking-widest">{progress}%</span>
           </div>
         </div>
 
-        <div className="lg:col-span-4 bg-surface p-10 rounded-[3rem] border border-txt-light/10 shadow-lg flex flex-col items-center justify-center relative dark:bg-dark-surface overflow-hidden">
-           <Avatar user={user} size="xl" />
-           <div className="mt-8 text-center space-y-1">
-                <div className="text-xs font-black text-primary uppercase tracking-[0.2em]">{t('dash.energy')}</div>
+        <div className="lg:col-span-4 bg-surface p-10 rounded-[3rem] border border-txt-light/10 shadow-lg flex flex-col items-center justify-center dark:bg-dark-surface overflow-hidden min-h-[300px]">
+            <Avatar user={user} size="xl" />
+            <div className="mt-8 text-center">
+                <div className="text-xs font-black text-primary uppercase tracking-widest">{t('dash.energy')}</div>
                 <div className="text-4xl font-black text-txt dark:text-white tracking-tighter">{energyValue}%</div>
-                <div className="text-[10px] text-txt-muted font-black uppercase tracking-widest pt-1">
-                  {energyValue > 70 ? t('dash.active') : energyValue > 35 ? t('dash.tired') : t('dash.sleeping')}
-                </div>
-           </div>
+            </div>
         </div>
 
         <div className="lg:col-span-4 flex flex-col gap-6">
-            <div className="bg-surface p-8 rounded-[2.5rem] border border-txt-light/10 shadow-sm dark:bg-dark-surface flex flex-col justify-center">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-txt-muted">{t('dash.readiness')}</h4>
-                    <Activity size={20} className="text-primary" />
-                </div>
-                <p className="text-sm font-bold text-txt dark:text-white leading-snug italic">
-                    {energyValue > 80 ? t('dash.readiness.high') : energyValue > 35 ? t('dash.readiness.mid') : t('dash.readiness.low')}
+            <div className="bg-surface p-8 rounded-[2.5rem] border border-txt-light/10 shadow-sm dark:bg-dark-surface">
+                <h4 className="text-xs font-black uppercase tracking-widest text-txt-muted mb-2">{t('dash.readiness')}</h4>
+                <p className="text-sm font-bold text-txt dark:text-white italic leading-snug">
+                  {energyValue > 70 ? t('dash.readiness.high') : t('dash.readiness.low')}
                 </p>
             </div>
-            
-            <div className="bg-habit/5 p-8 rounded-[2.5rem] border border-habit/20 dark:bg-habit/10 flex-1 flex flex-col justify-center">
+            <div className="bg-habit/10 p-8 rounded-[2.5rem] border border-habit/20 flex-1">
                 <h4 className="font-black text-xs uppercase tracking-widest text-habit mb-4 flex items-center gap-2">
                     <Gift size={18} /> {t('profile.outfit')}
                 </h4>
-                {nextReward ? (
-                    <div className="flex items-center gap-5">
-                        <div className="text-3xl bg-white dark:bg-dark-surface p-3 rounded-2xl shadow-sm">{nextReward.icon}</div>
-                        <div>
-                            <p className="text-sm font-black text-txt dark:text-white uppercase tracking-tight">{nextReward.name}</p>
-                            <p className="text-xs text-txt-muted font-bold">{t('profile.lock_at')} Lvl {nextReward.requirementLevel}</p>
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-sm font-bold text-habit">{t('dash.no_rewards')}</p>
+                {nextReward && (
+                  <div className="flex items-center gap-4">
+                    <div className="text-3xl bg-white dark:bg-dark-surface p-3 rounded-2xl">{nextReward.icon}</div>
+                    <p className="text-xs font-bold uppercase">{nextReward.name} (Lvl {nextReward.requirementLevel})</p>
+                  </div>
                 )}
             </div>
         </div>
